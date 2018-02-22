@@ -1,0 +1,62 @@
+Orientation
+
+Method 1: 3rd Place (Step 0: 204-207)
+
+If InPlaneEncodingDirection == 'COL':
+# Rotates Image counter clockwise	
+	img=cv2.transpose(img)
+	imag=cv2.flip (img, 0)
+
+
+Method 2: 1st Place (Heart: 26-42 def getAlignImg)
+
+1. Gets the ImageOrientationPatient for row and col
+2. Finds the vector perpendicular to the row and col vectors (cross product)
+3. Creates an array with values (UNKNOWN WHY VALUES CHOSEN)
+4. Finds cross product of the created vector and perpendicular vector
+5. Finds theta 
+6. Rotates image around theta 
+
+Rescaling
+
+Method 1: 3rd Place (Step 0: 210-212)
+
+#Rescales each image so each pixel is of the same area  
+
+scale=Spacing[0] #Takes the first value in the spacing vector
+img=cv2.resize(img, (0,0), fx=scale, fy=scale) 
+#(0,0) means that the output image will be dsize=Size(round(fx*img.col), round(fy*img.rows))
+
+
+Image Same Size:
+
+Method 1: 3rd Place (Step 0: 154-174 def get_sqaure_crop)
+
+Checks to make sure that the image height is < 256. If yes, then creates a border on the top and bottom to make the image height=256. 
+
+Check to make sure that the image width is < 256. If yes, then makes a border on the left and right to make sure the width=256. 
+
+If the height and width are larger than 256, determine how much to crop the image by in the x and y direction. 
+
+Crops image to be 256x256 to get a sq_img
+
+Method 2: 1st Place (Heart: 188-213)
+
+Done after Aligning the Image to the correct orientation
+Crops the center of the image and stretches the images to make it the same size
+
+Method 3: 2nd Place (image_transform: 115-172 def normscale_resize_and_augment_2)
+
+1. normalized shape: current shape * pixel_spacing (pixel_spacing default (1,1))
+2. Final shape: (# slices, max slice shape [0]) +(50,50) # (50,50) is default
+3. norm_rescaling = 1/pixel_spacing
+	4. Using def build_rescale_transform: Use similarityTransformation to shift the images
+
+ 
+
+Contrast Enhancement
+
+Method 1: 3rd Place (Step 0: 215-216)
+
+clahe=cv2.create(CLAHE(tileGridSize=(1,1)) #Histogram is applied to each 1x1 square of the image
+cl_img=clahe.apply(sq_img) #Applies it to a square image
