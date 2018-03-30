@@ -127,7 +127,7 @@ class Method1(object):
                             img = self.InPlanePhaseEncoding(dw)
                             rescaled = self.reScale(img, dw.spacing[0])
                             outfilename = "{0}_{1}_{2}.npy".format(dw.patient_id, rootnode, f)
-                            np.save("{0}/{1}".format(preproc.normoutputs[self.source]['dir'], outfilename), rescaled)
+                            np.save("{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, outfilename), rescaled)
 
                     self.update_filesource(patient, {'patientfiles':patientslices}, 1)
 
