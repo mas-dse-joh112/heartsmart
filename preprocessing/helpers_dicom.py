@@ -109,6 +109,11 @@ class DicomWrapper:
         direction = numpy.argmax(numpy.abs(numpy.cross(self.image_orientation_patient[:3], self.image_orientation_patient[3:])))
         res = numpy.round(center[direction], 2)
         return center
+    
+    def slice_location(self):
+        sl= np.dot(self.image_position_patient,
+                   np.cross(self.image_orientation_patient[:3],self.image_orinetation_patient[3:]))
+        return sl
 
     @property
     def pixel_array(self):
