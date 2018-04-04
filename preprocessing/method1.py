@@ -46,10 +46,10 @@ class Method1(object):
             if self.source == 'dsb':
                 self.update_filesource('source', self.source)
                 self.get_dsb_files()
-                print self.filesource
+                #print self.filesource
 
         def update_filesource(self, key, value, append=0):
-            print 'k', key, 'v', value, 'a', append
+            #print 'k', key, 'v', value, 'a', append
 
             if key not in self.filesource:
                 if append:
@@ -78,7 +78,7 @@ class Method1(object):
 
         def get_dsb_files(self):
             for f in self.inputfiles:
-                print 'f', f
+                #print 'f', f
                 nodes = f.split('/')
 
                 patient = int(nodes[-1])
@@ -86,13 +86,13 @@ class Method1(object):
                 if patient < int(self.start):
                     continue
 
-                print 'patient range', patient, self.start, self.end
+                #print 'patient range', patient, self.start, self.end
 
                 if patient > int(self.end):
                     continue
                 
                 inputs = glob.glob("{0}/{1}/{2}*".format(f,self.sourceinfo['string'],self.sourceinfo['pattern']))
-                print 'inputs', inputs
+                #print 'inputs', inputs
 
                 for i in inputs:
                     patientslices = dict()
@@ -106,7 +106,7 @@ class Method1(object):
                             if not f.endswith('.dcm'):
                                 continue
 
-                            print root, f
+                            #print root, f
                             dw = dicomwrapper(root+'/', f)
 
                             if int(dw.patient_id) != patient:
@@ -126,8 +126,13 @@ class Method1(object):
 
                             img = self.InPlanePhaseEncoding(dw)
                             rescaled = self.reScale(img, dw.spacing[0])
-                            outfilename = "{0}_{1}_{2}.npy".format(dw.patient_id, rootnode, f)
-                            np.save("{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, outfilename), rescaled)
+                            outfilename = "{0}_{1}.npy".format(rootnode, f)
+                            outpath =  "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, dw.patient_id)
+
+                            if not os.path.isdir(outpath):
+                                os.mkdir(outpath)
+
+                            np.save("{0}/{1}".format(outpath, outfilename), rescaled)
 
                     self.update_filesource(patient, {'patientfiles':patientslices}, 1)
 
