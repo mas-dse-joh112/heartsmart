@@ -61,7 +61,7 @@ SUNNYBROOK_ROOT_PATH = "/opt/data/sunnybrook/"
 TRAIN_CONTOUR_PATH = os.path.join(SUNNYBROOK_ROOT_PATH, "SCD_ManualContours")
 
 #Update with Train Image Path
-TRAIN_IMG_PATH = os.path.join(SUNNYBROOK_ROOT_PATH, "challenge_online")
+TRAIN_IMG_PATH = os.path.join(SUNNYBROOK_ROOT_PATH, "challenge")
 
 
 def shrink_case(case):
@@ -119,7 +119,7 @@ def export_all_contours(contours, img_path, lmdb_img_name, lmdb_label_name):
     counter_img = 0
     counter_label = 0
     batchsz = 100
-    outpath = '/opt/output/sunnybrook/challenge_online'
+    outpath = '/opt/output/sunnybrook/challenge'
     print("Processing {:d} images and labels...".format(len(contours)))
     
     for i in xrange(int(np.ceil(len(contours) / float(batchsz)))):
@@ -135,9 +135,9 @@ def export_all_contours(contours, img_path, lmdb_img_name, lmdb_label_name):
                 continue
                 
             filepath, filename = full_path.split('/')[-2:]
-            print 'full_path', full_path
-            print 'img', img
-            print 'label', label
+            #print 'full_path', full_path
+            #print 'img', img
+            #print 'label', label
             outfullpath = "{0}/{1}".format(outpath, filepath)
             print outfullpath
             
@@ -149,6 +149,8 @@ def export_all_contours(contours, img_path, lmdb_img_name, lmdb_label_name):
                 
             if idx % 20 == 0:
                 print ctr
+
+    print 'missing', missing
 
 if __name__== "__main__":
     SPLIT_RATIO = 0.1
