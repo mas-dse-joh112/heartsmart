@@ -126,13 +126,15 @@ class Method1(object):
 
                             img = self.InPlanePhaseEncoding(dw)
                             rescaled = self.reScale(img, dw.spacing[0])
+                            cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
+                            norm=self.CLAHEContrastNorm(cropped, tile_size=(1,1))
                             outfilename = "{0}_{1}.npy".format(rootnode, f)
                             outpath =  "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, dw.patient_id)
 
                             if not os.path.isdir(outpath):
                                 os.mkdir(outpath)
 
-                            np.save("{0}/{1}".format(outpath, outfilename), rescaled)
+                            np.save("{0}/{1}".format(outpath, outfilename), norm)
 
                     self.update_filesource(patient, {'patientfiles':patientslices}, 1)
 
