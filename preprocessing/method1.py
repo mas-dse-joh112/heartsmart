@@ -124,7 +124,7 @@ class Method1(object):
 
                             patientslices[root].append(patientframe)
 
-                            img = self.InPlanePhaseEncoding(dw)
+                            img = self.InPlanePhaseEncoding(dw.raw_file)
                             rescaled = self.reScale(img, dw.spacing[0])
                             cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
                             norm=self.CLAHEContrastNorm(cropped, tile_size=(1,1))
@@ -141,7 +141,7 @@ class Method1(object):
 		
 	#Function that uses the InPlanephaseEncoding to determine if COL or ROW based and then transposes and flips the image. 
 	def InPlanePhaseEncoding (self, img):
-	    if img.in_plane_encoding_direction == 'COL':
+	    if img.InPlanePhaseEncodingDirection == 'COL':
 	        new_img = cv2.transpose(img.pixel_array)
 	        #py.imshow(img_new)
 	        new_img = cv2.flip(new_img, 0)
