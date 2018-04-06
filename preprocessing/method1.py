@@ -181,7 +181,7 @@ class Method1(object):
 	#Contrast Normalizaiton
 	def CLAHEContrastNorm(self, img, tile_size=(1,1)):
 	    clahe = cv2.createCLAHE(tileGridSize=tile_size)
-	    return clahe.apply(sq_img_0)
+	    return clahe.apply(img)
 
 
 if __name__ == "__main__":
