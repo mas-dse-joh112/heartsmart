@@ -28,9 +28,9 @@ class Method1(object):
                 print "method 1"
                 sys.exit()
 
-            if self.path != 'train' and self.path != 'validate':
-                print "train or validate path"
-                sys.exit()
+            #if self.path != 'train' and self.path != 'validate':
+            #    print "train or validate path"
+            #    sys.exit()
 
             if self.source not in preproc.sources.keys():
                 sys.exit()
@@ -47,6 +47,12 @@ class Method1(object):
                 self.update_filesource('source', self.source)
                 self.get_dsb_files()
                 #print self.filesource
+                return
+
+            if self.source == 'sunnybrook':
+                self.update_filesource('source', self.source)
+                self.get_sunnybrook_files()
+                return
 
         def update_filesource(self, key, value, append=0):
             #print 'k', key, 'v', value, 'a', append
@@ -75,6 +81,60 @@ class Method1(object):
             path = "{0}/{1}/*".format(self.sourceinfo['dir'], self.path)
             self.update_filesource('path', path)
             self.inputfiles = glob.glob(path)
+
+        def get_sunnybrook_files(self):
+            for f in self.inputfiles:
+                print 'f', f
+
+                inputs = glob.glob("{0}/{1}".format(f,self.sourceinfo['string']))
+                print 'inputs', inputs
+
+                for i in inputs:
+                    patientslices = dict()
+
+                    for root, _, files in os.walk(i):
+
+                        rootnode = root.split("/")[-1] # sax file
+                        patientslices.update({root: []})
+
+                        for f in files:
+                            if not f.endswith('.dcm'):
+                                continue
+
+                            if root.endswith('SC-HF-NI-15'):
+                                continue
+
+                            #print root, f
+                            dw = None
+
+                            try:
+                                dw = dicomwrapper(root+'/', f)
+                            except:
+                                continue
+
+                            patientframe = dict()
+                            patientframe.update({'filename': f})
+                            patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
+
+                            patientslices.update({'image_position_patient': dw.image_position_patient})
+                            patientslices.update({'image_orientation_patient': dw.image_orientation_patient})
+                            patientslices.update({'PixelSpacing': dw.spacing})
+                            #patientslices.update({'PatientAge': dw.PatientAge})
+
+                            patientslices[root].append(patientframe)
+
+                            img = self.InPlanePhaseEncoding(dw.raw_file)
+                            rescaled = self.reScale(img, dw.spacing[0])
+                            cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
+                            converted = np.array(cropped, dtype=np.uint16)
+                            norm=self.CLAHEContrastNorm(converted, tile_size=(1,1))
+                            outfilename = "{0}.npy".format(f)
+                            outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
+
+                            if not os.path.isdir(outpath):
+                                os.mkdir(outpath)
+
+                            np.save("{0}/{1}".format(outpath, outfilename), norm)
 
         def get_dsb_files(self):
             for f in self.inputfiles:
@@ -106,7 +166,6 @@ class Method1(object):
                             if not f.endswith('.dcm'):
                                 continue
 
-                            #print root, f
                             dw = dicomwrapper(root+'/', f)
 
                             if int(dw.patient_id) != patient:
