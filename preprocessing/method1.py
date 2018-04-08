@@ -83,58 +83,50 @@ class Method1(object):
             self.inputfiles = glob.glob(path)
 
         def get_sunnybrook_files(self):
-            for f in self.inputfiles:
-                print 'f', f
+            for i in self.inputfiles:
+                if i.endswith('pdf'):
+                    continue
 
-                inputs = glob.glob("{0}/{1}".format(f,self.sourceinfo['string']))
-                print 'inputs', inputs
+                patientslices = dict()
 
-                for i in inputs:
-                    patientslices = dict()
+                for root, _, files in os.walk(i):
+                    rootnode = root.split("/")[-1] # sax file
+                    patientslices.update({root: []})
 
-                    for root, _, files in os.walk(i):
+                    for f in files:
+                        if not f.endswith('.dcm'):
+                            continue
 
-                        rootnode = root.split("/")[-1] # sax file
-                        patientslices.update({root: []})
+                        dw = None
 
-                        for f in files:
-                            if not f.endswith('.dcm'):
-                                continue
+                        try:
+                            dw = dicomwrapper(root+'/', f)
+                        except:
+                            continue
 
-                            if root.endswith('SC-HF-NI-15'):
-                                continue
+                        patientframe = dict()
+                        patientframe.update({'filename': f})
+                        patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
 
-                            #print root, f
-                            dw = None
+                        patientslices.update({'image_position_patient': dw.image_position_patient})
+                        patientslices.update({'image_orientation_patient': dw.image_orientation_patient})
+                        patientslices.update({'PixelSpacing': dw.spacing})
+                        #patientslices.update({'PatientAge': dw.PatientAge})
 
-                            try:
-                                dw = dicomwrapper(root+'/', f)
-                            except:
-                                continue
+                        patientslices[root].append(patientframe)
 
-                            patientframe = dict()
-                            patientframe.update({'filename': f})
-                            patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
+                        img = self.InPlanePhaseEncoding(dw.raw_file)
+                        rescaled = self.reScale(img, dw.spacing[0])
+                        cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
+                        converted = np.array(cropped, dtype=np.uint16)
+                        norm=self.CLAHEContrastNorm(converted, tile_size=(1,1))
+                        outfilename = "{0}.npy".format(f)
+                        outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
 
-                            patientslices.update({'image_position_patient': dw.image_position_patient})
-                            patientslices.update({'image_orientation_patient': dw.image_orientation_patient})
-                            patientslices.update({'PixelSpacing': dw.spacing})
-                            #patientslices.update({'PatientAge': dw.PatientAge})
+                        if not os.path.isdir(outpath):
+                            os.mkdir(outpath)
 
-                            patientslices[root].append(patientframe)
-
-                            img = self.InPlanePhaseEncoding(dw.raw_file)
-                            rescaled = self.reScale(img, dw.spacing[0])
-                            cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
-                            converted = np.array(cropped, dtype=np.uint16)
-                            norm=self.CLAHEContrastNorm(converted, tile_size=(1,1))
-                            outfilename = "{0}.npy".format(f)
-                            outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
-
-                            if not os.path.isdir(outpath):
-                                os.mkdir(outpath)
-
-                            np.save("{0}/{1}".format(outpath, outfilename), norm)
+                        np.save("{0}/{1}".format(outpath, outfilename), norm)
 
         def get_dsb_files(self):
             for f in self.inputfiles:
