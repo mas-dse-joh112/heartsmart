@@ -1,8 +1,8 @@
 
 methods = ['1','2','3']
-paths = ['train','validate','test']
+paths = ['train','validate','test','challenge_online','challenge_validation','challenge_training']
 dsbpaths = ['train','validate','test']
-sunnybrookpaths = ['challenge_online', 'challenge_validaton']
+sunnybrookpaths = ['challenge_online', 'challenge_validation','challenge_training']
 acdcpaths = ['niftidata']
 
 sources = {"dsb":{"dir":"/opt/data/dsb",
