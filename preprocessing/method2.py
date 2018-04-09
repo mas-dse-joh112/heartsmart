@@ -129,7 +129,72 @@ class Method2(object):
                             np.save("{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, outfilename), cropped)
 
                     self.update_filesource(patient, {'patientfiles':patientslices}, 1)
+        
+        def get_sunnybrook_files(self):
+            for i in self.inputfiles:
+                if i.endswith('pdf'):
+                    continue
 
+                patientslices = dict()
+
+                for root, _, files in os.walk(i):
+                    rootnode = root.split("/")[-1] # sax file
+                    patientslices.update({root: []})
+
+                    for f in files:
+                        if not f.endswith('.dcm'):
+                            continue
+
+                        dw = None
+
+                        try:
+                            dw = dicomwrapper(root+'/', f)
+                        except:
+                            continue
+
+                        patientframe = dict()
+                        patientframe.update({'filename': f})
+                        patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
+
+                        patientslices.update({'image_position_patient': dw.image_position_patient})
+                        patientslices.update({'image_orientation_patient': dw.image_orientation_patient})
+                        patientslices.update({'PixelSpacing': dw.spacing})
+                        #patientslices.update({'PatientAge': dw.PatientAge})
+
+                        patientslices[root].append(patientframe)
+
+                        img = self.getAlignImg(dw)
+                        cropped = self.crop_size(img)
+                        outfilename = "{0}.npy".format(f)
+                        outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
+
+                        if not os.path.isdir(outpath):
+                            os.mkdir(outpath)
+
+                        np.save("{0}/{1}".format(outpath, outfilename), norm)
+
+        def get_ACDC_files(self):
+            for i in self.inputfiles:
+                
+                patientslices = dict()
+                
+                for root, _, files in os.walk(i):
+                    rootnode = root.split("/")[-1] # sax file
+                    patientslices.update({root: []})
+                    
+                    for f in files:
+                        if not f.endswith('.nii'):
+                            continue
+
+                        dw = None
+                        
+                        try:
+                            dw = dicomwrapper(root+'/', f)
+                        except:
+                            continue
+                        patientframe = dict()
+                        patientframe.update({'filename': f})
+                        
 
 	def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
 	    f = lambda x:np.asarray([float(a) for a in x]);
