@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import dicom
 import os
 import numpy as np
@@ -27,10 +28,6 @@ class Method2(object):
                 print "method 2"
                 sys.exit()
 
-            if self.path != 'train' and self.path != 'validate':
-                print "train or validate path"
-                sys.exit()
-
             if self.source not in preproc.sources.keys():
                 sys.exit()
 
@@ -46,6 +43,12 @@ class Method2(object):
                 self.update_filesource('source', self.source)
                 self.get_dsb_files()
                 print self.filesource
+                return
+
+            if self.source == 'sunnybrook':
+                self.update_filesource('source', self.source)
+                self.get_sunnybrook_files()
+                return
 
         def update_filesource(self, key, value, append=0):
             print 'k', key, 'v', value, 'a', append
@@ -171,7 +174,7 @@ class Method2(object):
                         if not os.path.isdir(outpath):
                             os.mkdir(outpath)
 
-                        np.save("{0}/{1}".format(outpath, outfilename), norm)
+                        np.save("{0}/{1}".format(outpath, outfilename), cropped)
 
         def get_ACDC_files(self):
             for i in self.inputfiles:
@@ -236,7 +239,7 @@ class Method2(object):
 		    shift = shift + s;
 		else:
 		    s = (img_L-res.shape[0])//2;
-		    res2 = np.zeros((self.img_L,img_L));
+		    res2 = np.zeros((img_L,img_L));
 		    res2[s:s+res.shape[0],s:s+res.shape[0]] = res;
 		    res = res2;
 		    shift = shift - s;
