@@ -7,6 +7,7 @@ import numpy as np
 import glob
 import cv2 
 import preproc
+import nibabel as nib
 from helpers_dicom import DicomWrapper as dicomwrapper
 
 
@@ -28,10 +29,6 @@ class Method1(object):
                 print "method 1"
                 sys.exit()
 
-            #if self.path != 'train' and self.path != 'validate':
-            #    print "train or validate path"
-            #    sys.exit()
-
             if self.source not in preproc.sources.keys():
                 sys.exit()
 
@@ -52,6 +49,11 @@ class Method1(object):
             if self.source == 'sunnybrook':
                 self.update_filesource('source', self.source)
                 self.get_sunnybrook_files()
+                return
+
+            if self.source == 'acdc':
+                self.update_filesource('source', self.source)
+                self.get_acdc_files()
                 return
 
         def update_filesource(self, key, value, append=0):
@@ -81,6 +83,63 @@ class Method1(object):
             path = "{0}/{1}/*".format(self.sourceinfo['dir'], self.path)
             self.update_filesource('path', path)
             self.inputfiles = glob.glob(path)
+
+        def orientation_flip180(self, img):
+            return cv2.flip(img,-1)
+
+        def get_acdc_files(self):
+            for f in self.inputfiles:
+                nodes = f.split('/')
+
+                inputs = glob.glob("{0}/{1}/{2}*".format(f,self.sourceinfo['string'],self.sourceinfo['pattern']))
+                print 'inputs', inputs
+
+                patient = None
+
+                for i in inputs:
+                    print 'i', i
+
+                    if i.endswith('labels'):
+                        for root, _, files in os.walk(i):
+                            rootnode = root.split("/")
+                            label = rootnode[-1]
+                            tempdir = i.replace('/'+label,'')
+                            patient = rootnode[-2]
+                            print 'rootnode', rootnode, label, patient, files, tempdir
+
+                            for f in files:
+                                nim1dir = root.replace('/'+label,'')
+                                nim1label = nib.load(root+'/'+f)
+                                spacing = nim1label.header.get('pixdim')[1]
+                                flippedlabel = self.orientation_flip180(nim1label.get_data())
+                                rescaled = self.reScale(flippedlabel, spacing)
+                                cropped=self.get_square_crop(rescaled)
+                                converted = np.array(cropped, dtype=np.uint16)
+                                norm=self.CLAHEContrastNorm(converted)
+                                outfilename = "{0}.npy".format(f)
+                                outpath = "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, patient)
+
+                                if not os.path.isdir(outpath):
+                                    os.mkdir(outpath)
+
+                                np.save("{0}/{1}".format(outpath, outfilename), norm)
+
+                                outfilenamenodes = outfilename.split('_')
+                                slicepath = "{0}_{1}".format(outfilenamenodes[0], outfilenamenodes[1])
+                                slicedir = "{0}/{1}".format(nim1dir, slicepath)
+
+                                for root2, _, files2 in os.walk(slicedir):
+                                    for f2 in files2:
+                                        nim1 = nib.load(root2+'/'+f2)
+                                        spacing2 = nim1.header.get('pixdim')[1]
+                                        flipped = self.orientation_flip180(nim1.get_data())
+                                        rescaled2 = self.reScale(flipped, spacing2)
+                                        cropped2 = self.get_square_crop(rescaled2)
+                                        converted2 = np.array(cropped2, dtype=np.uint16)
+                                        norm2 = self.CLAHEContrastNorm(converted2)
+                                        outfilename2 = "{0}.npy".format(f2)
+                                        np.save("{0}/{1}".format(outpath, outfilename2), norm2)
+
 
         def get_sunnybrook_files(self):
             for i in self.inputfiles:
@@ -117,9 +176,9 @@ class Method1(object):
 
                         img = self.InPlanePhaseEncoding(dw.raw_file)
                         rescaled = self.reScale(img, dw.spacing[0])
-                        cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
+                        cropped=self.get_square_crop(rescaled)
                         converted = np.array(cropped, dtype=np.uint16)
-                        norm=self.CLAHEContrastNorm(converted, tile_size=(1,1))
+                        norm=self.CLAHEContrastNorm(converted)
                         outfilename = "{0}.npy".format(f)
                         outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
 
@@ -177,8 +236,8 @@ class Method1(object):
 
                             img = self.InPlanePhaseEncoding(dw.raw_file)
                             rescaled = self.reScale(img, dw.spacing[0])
-                            cropped=self.get_square_crop(rescaled, base_size=256, crop_size=256)
-                            norm=self.CLAHEContrastNorm(cropped, tile_size=(1,1))
+                            cropped=self.get_square_crop(rescaled)
+                            norm=self.CLAHEContrastNorm(cropped)
                             outfilename = "{0}_{1}.npy".format(rootnode, f)
                             outpath =  "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, dw.patient_id)
 
