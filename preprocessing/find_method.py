@@ -9,6 +9,7 @@ import cv2
 import preproc
 import argparse
 from method1 import *
+from method2 import *
 
 
 class FindMethod(object):
@@ -47,6 +48,11 @@ class FindMethod(object):
 
         if self.method == '1':
             method = Method1(self.arg)
+            method.main_process()
+            return
+
+        if self.method == '2':
+            method = Method2(self.arg)
             method.main_process()
             return
 
