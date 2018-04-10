@@ -51,7 +51,7 @@ class Method2(object):
                 return
 
         def update_filesource(self, key, value, append=0):
-            print 'k', key, 'v', value, 'a', append
+            #print 'k', key, 'v', value, 'a', append
 
             if key not in self.filesource:
                 if append:
@@ -149,10 +149,12 @@ class Method2(object):
                             continue
 
                         dw = None
-
                         try:
                             dw = dicomwrapper(root+'/', f)
                         except:
+                            print root, f
+                            img=dicom.read_file(root+'/'+f)
+                            print img.BitsStored, img.BitsAllocated
                             continue
 
                         patientframe = dict()
