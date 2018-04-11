@@ -15,8 +15,6 @@ from helpers_dicom import DicomWrapper as dicomwrapper
 class Method2(object):
 	def __init__(self, arg):
             self.arg = arg
-            self.start = self.arg.start
-            self.end = self.arg.end
             self.method = self.arg.method
             self.path = self.arg.path
             self.source = self.arg.source
@@ -31,9 +29,6 @@ class Method2(object):
 
             if self.source not in preproc.sources.keys():
                 sys.exit()
-
-            if int(self.end) < int(self.start):
-                self.end = self.start
 
         """ main function """
         def main_process(self):
@@ -98,14 +93,6 @@ class Method2(object):
 
                 patient = int(nodes[-1])
 
-                if patient < int(self.start):
-                    continue
-
-                print 'patient range', patient, self.start, self.end
-
-                if patient > int(self.end):
-                    continue
-                
                 print self.sourceinfo
                 inputs = glob.glob("{0}/{1}/{2}*".format(f,self.sourceinfo['string'],self.sourceinfo['pattern']))
                 print 'inputs', inputs
@@ -141,8 +128,13 @@ class Method2(object):
 
                             img = self.getAlignImg(dw)
                             cropped = self.crop_size(img)
-                            outfilename = "{0}_{1}_{2}.npy".format(dw.patient_id, rootnode, f)
-                            np.save("{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, outfilename), cropped)
+                            outfilename = "{0}_{1}.npy".format(rootnode, f)
+                            outpath = "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, dw.patient_id)
+
+                            if not os.path.isdir(outpath):
+                                os.mkdir(outpath)
+
+                            np.save("{0}/{1}".format(outpath, outfilename), cropped)
 
                     self.update_filesource(patient, {'patientfiles':patientslices}, 1)
         
@@ -281,5 +273,10 @@ class Method2(object):
 		    res2[s:s+res.shape[0],s:s+res.shape[0]] = res;
 		    res = res2;
 		    shift = shift - s;
+
 	    return res
 
+if __name__ == "__main__":
+    import config
+    method = Method2(config)
+    method.main_process()
