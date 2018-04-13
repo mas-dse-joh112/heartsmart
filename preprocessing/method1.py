@@ -259,11 +259,8 @@ class Method1(object):
             return cv2.resize(label, (0,0), fx=scale, fy=scale)
 
 	#Function to crop the image into a square
-	def get_square_crop(self, img, base_size=256, crop_size=256, label=None):
-	    if label is None:
-            res = img
-        else:
-            res=label
+	def get_square_crop(self, img, base_size=256, crop_size=256):
+        res = img
 	    height, width = res.shape
 
 	    if height < base_size:
