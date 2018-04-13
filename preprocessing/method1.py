@@ -15,8 +15,6 @@ class Method1(object):
 	def __init__(self, arg):
             self.arg = arg
             print self.arg
-            self.start = self.arg.start
-            self.end = self.arg.end
             self.method = self.arg.method
             self.path = self.arg.path
             self.source = self.arg.source
@@ -32,9 +30,6 @@ class Method1(object):
             if self.source not in preproc.sources.keys():
                 sys.exit()
 
-            if int(self.end) < int(self.start):
-                self.end = self.start
-
         """ main function """
         def main_process(self):
             self.get_config()
@@ -43,7 +38,6 @@ class Method1(object):
             if self.source == 'dsb':
                 self.update_filesource('source', self.source)
                 self.get_dsb_files()
-                #print self.filesource
                 return
 
             if self.source == 'sunnybrook':
@@ -194,16 +188,7 @@ class Method1(object):
 
                 patient = int(nodes[-1])
 
-                if patient < int(self.start):
-                    continue
-
-                #print 'patient range', patient, self.start, self.end
-
-                if patient > int(self.end):
-                    continue
-                
                 inputs = glob.glob("{0}/{1}/{2}*".format(f,self.sourceinfo['string'],self.sourceinfo['pattern']))
-                #print 'inputs', inputs
 
                 for i in inputs:
                     patientslices = dict()
@@ -297,12 +282,6 @@ class Method1(object):
 
 
 if __name__ == "__main__":
-    arg = {'start':2,
-           'end':2,
-           'method': 1,
-           'path': 'train'
-          }
-
-    method = Method1(arg)
-    method.get_config()
-    method.get_files()
+    import config
+    method = Method1(config)
+    method.main_process()
