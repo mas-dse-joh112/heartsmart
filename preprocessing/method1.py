@@ -235,23 +235,35 @@ class Method1(object):
 
 		
 	#Function that uses the InPlanephaseEncoding to determine if COL or ROW based and then transposes and flips the image. 
-	def InPlanePhaseEncoding (self, img):
+	def InPlanePhaseEncoding (self, img, label=None):
 	    if img.InPlanePhaseEncodingDirection == 'COL':
 	        new_img = cv2.transpose(img.pixel_array)
 	        #py.imshow(img_new)
 	        new_img = cv2.flip(new_img, 0)
-	        return new_img
+            if label is None:
+                return new_img
+            else: 
+                lab=cv2.flip(label,0)
 	    else:
 	        #print 'Row Oriented'
-	        return img.pixel_array
+	        if label is None:
+                return img.pixel_array
+            else:
+            return label
 
 	#Function of Rescaling the pixels
-	def reScale(self, img, scale):
-	    return cv2.resize(img, (0, 0), fx=scale, fy=scale)
+	def reScale(self, img, scale, label=None):
+	    if label is None:
+            return cv2.resize(img, (0, 0), fx=scale, fy=scale)
+        else: 
+            return cv2.resize(label, (0,0), fx=scale, fy=scale)
 
 	#Function to crop the image into a square
-	def get_square_crop(self, img, base_size=256, crop_size=256):
-	    res = img
+	def get_square_crop(self, img, base_size=256, crop_size=256, label=None):
+	    if label is None:
+            res = img
+        else:
+            res=label
 	    height, width = res.shape
 
 	    if height < base_size:
@@ -276,9 +288,12 @@ class Method1(object):
 	    return res
 
 	#Contrast Normalizaiton
-	def CLAHEContrastNorm(self, img, tile_size=(1,1)):
+	def CLAHEContrastNorm(self, img, tile_size=(1,1), label=None):
 	    clahe = cv2.createCLAHE(tileGridSize=tile_size)
-	    return clahe.apply(img)
+	    if label is None:
+            return clahe.apply(img)
+        else:
+            return clahe.apply(label)
 
 
 if __name__ == "__main__":
