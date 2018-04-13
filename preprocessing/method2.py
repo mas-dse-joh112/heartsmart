@@ -129,7 +129,7 @@ class Method2(object):
                             img = self.getAlignImg(dw)
                             cropped = self.crop_size(img)
                             outfilename = "{0}_{1}.npy".format(rootnode, f)
-                            outpath = "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, dw.patient_id)
+                            outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, dw.patient_id)
 
                             if not os.path.isdir(outpath):
                                 os.mkdir(outpath)
