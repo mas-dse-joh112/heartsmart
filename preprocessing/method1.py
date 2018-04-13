@@ -241,7 +241,7 @@ class Method1(object):
 	        #py.imshow(img_new)
 	        new_img = cv2.flip(new_img, 0)
             return new_img
-	    else:
+        else:
 	        #print 'Row Oriented'
             return img.pixel_array
 
