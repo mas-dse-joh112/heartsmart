@@ -101,12 +101,12 @@ def load_contour(contour, img_path,method = None):
     label = np.zeros_like(img, dtype="uint8")
     cv2.fillPoly(label, [ctrs], 1)
     #ADD IN NORMALIZATION HERE
-    if method = 1:
+    if method == 1:
         label = m1.InPlanePhaseEncoding(f, label)
         label = m1.rescale(label, f.PixelSpacing[0])
         label = m1.get_square_crop(label)
         
-    if method = 2:
+    if method == 2:
         label = m2.getAlignImg(f, label)
         label = m2.crop_size(label)
         
