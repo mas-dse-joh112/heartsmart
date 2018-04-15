@@ -18,6 +18,7 @@ class FindMethod(object):
         print self.arg
         self.method = self.arg.method
         self.path = self.arg.path
+        self.type = self.arg.type
 
     def get_method(self):
         if self.method not in preproc.methods:
@@ -28,6 +29,11 @@ class FindMethod(object):
         if self.path not in preproc.paths:
             print "not a valid path"
             print ", ".join(preproc.paths)
+            sys.exit()
+
+        if self.type not in preproc.types:
+            print "not a valid type"
+            print ", ".join(preproc.types)
             sys.exit()
 
         if self.method == '1':
@@ -44,6 +50,7 @@ class FindMethod(object):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--method', help="normalize methods:{0}".format(", ".join(preproc.methods)))
+    parser.add_argument('--type', help="normalize types:{0}".format(", ".join(preproc.types)))
     parser.add_argument('--path', help="folder paths:{0}".format(", ".join(preproc.paths)))
     parser.add_argument('--source', help="sources:{0}".format(", ".join(preproc.sources.keys())))
 
