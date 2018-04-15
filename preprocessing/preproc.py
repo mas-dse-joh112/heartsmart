@@ -1,5 +1,6 @@
 
 methods = ['1','2','3']
+types = ['0','1','2']
 paths = ['train','validate','test','challenge_online','challenge_validation','challenge_training','niftidata']
 dsbpaths = ['train','validate','test']
 sunnybrookpaths = ['challenge_online', 'challenge_validation','challenge_training']
