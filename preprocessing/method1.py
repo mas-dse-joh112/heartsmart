@@ -221,12 +221,14 @@ class Method1(object):
                             patientslices[root].append(patientframe)
                             norm = None
 
-                            if self.type == 0 and self.type == '0':
+                            if self.type == 0 or self.type == '0':
                                 norm = self.original_method(dw)
-                            elif self.type == 1 and self.type == '1':
+                            elif self.type == 1 or self.type == '1':
                                 norm = self.new_rescaling_method(dw)
-                            else:
+                            elif self.type == 2 or self.type == '2':
                                 norm = self.no_orientation_method(dw)
+                            elif self.type == 3 or self.type == '3':
+                                norm = self.rescaling_only_method(dw)
 
                             outfilename = "{0}_{1}.npy".format(rootnode, f)
                             outpath =  "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, dw.patient_id)
@@ -248,9 +250,9 @@ class Method1(object):
         #New Rescaling
         def new_rescaling_method(self, dw):
             img = self.InPlanePhaseEncoding(dw.raw_file)
-            rescaled = self.reScaleNew(img, img.PixelSpacing)
+            rescaled = self.reScaleNew(img, dw.spacing)
             cropped = self.get_square_crop(rescaled)
-            new_cropped=np.array(cropped, dtype=np.uint16)
+            new_cropped = np.array(cropped, dtype=np.uint16)
             return self.CLAHEContrastNorm(new_cropped)
 
         #No Orientation
@@ -258,8 +260,14 @@ class Method1(object):
             img = dw.raw_file
             rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
             cropped = self.get_square_crop(rescaled)
-            new_cropped=np.array(cropped, dtype=np.uint16)
+            new_cropped = np.array(cropped, dtype=np.uint16)
             return self.CLAHEContrastNorm(new_cropped)
+
+        #Rescaling only
+        def rescaling_only_method(self, dw):
+            img = dw.raw_file
+            rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
+            return rescaled
 
 	#Function that uses the InPlanephaseEncoding to determine if COL or ROW based and then transposes and flips the image. 
 	def InPlanePhaseEncoding (self, img):
