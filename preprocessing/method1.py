@@ -158,6 +158,7 @@ class Method1(object):
                         except:
                             continue
 
+                        """
                         patientframe = dict()
                         patientframe.update({'filename': f})
                         patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
@@ -168,14 +169,20 @@ class Method1(object):
                         #patientslices.update({'PatientAge': dw.PatientAge})
 
                         patientslices[root].append(patientframe)
+                        """
+                        norm = None
 
-                        img = self.InPlanePhaseEncoding(dw.raw_file)
-                        rescaled = self.reScale(img, dw.spacing[0])
-                        cropped=self.get_square_crop(rescaled)
-                        converted = np.array(cropped, dtype=np.uint16)
-                        norm=self.CLAHEContrastNorm(converted)
+                        if self.type == 0 or self.type == '0':
+                            norm = self.original_method(dw, 1) # 1 for yes, convert to unicode int 16
+                        elif self.type == 1 or self.type == '1':
+                            norm = self.new_rescaling_method(dw)
+                        elif self.type == 2 or self.type == '2':
+                            norm = self.no_orientation_method(dw)
+                        elif self.type == 3 or self.type == '3':
+                            norm = self.rescaling_only_method(dw)
+
                         outfilename = "{0}.npy".format(f)
-                        outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
+                        outpath =  "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, rootnode)
 
                         if not os.path.isdir(outpath):
                             os.mkdir(outpath)
@@ -209,6 +216,7 @@ class Method1(object):
                                 print 'Error'
                                 sys.exit()
 
+                            """
                             patientframe = dict()
                             patientframe.update({'filename': f})
                             patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
@@ -219,6 +227,8 @@ class Method1(object):
                             patientslices.update({'PatientAge': dw.PatientAge})
 
                             patientslices[root].append(patientframe)
+                            """
+
                             norm = None
 
                             if self.type == 0 or self.type == '0':
@@ -238,13 +248,18 @@ class Method1(object):
 
                             np.save("{0}/{1}".format(outpath, outfilename), norm)
 
-                    self.update_filesource(patient, {'patientfiles':patientslices}, 1)
+                    #self.update_filesource(patient, {'patientfiles':patientslices}, 1)
 
         #Original method
-        def original_method(self, dw):
+        def original_method(self, dw, convert=0):
             img = self.InPlanePhaseEncoding(dw.raw_file)
             rescaled = self.reScale(img, dw.spacing[0])
             cropped = self.get_square_crop(rescaled)
+
+            if convert:
+                converted = np.array(cropped, dtype=np.uint16)
+                return self.CLAHEContrastNorm(converted)
+
             return self.CLAHEContrastNorm(cropped)
 
         #New Rescaling
