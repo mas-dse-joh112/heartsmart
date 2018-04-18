@@ -149,7 +149,7 @@ class Method2(object):
                             if not os.path.isdir(outpath):
                                 os.mkdir(outpath)
 
-                            np.save("{0}/{1}".format(outpath, outfilename), cropped)
+                            np.save("{0}/{1}".format(outpath, outfilename), norm)
 
                     self.update_filesource(patient, {'patientfiles':patientslices}, 1)
         
@@ -177,14 +177,30 @@ class Method2(object):
                                 nim1dir = root.replace('/'+label,'')
                                 nim1label = nib.load(root+'/'+f)
                                 flippedlabel = self.orientation_flip180(nim1label.get_data())
+                                
+                                norm = None
+                                
+                                if self.type == 0 or self.type == '0':
+                                    #contrast = self.contrast(flippedlabel)
+                                    norm = self.crop_size(flippedlabel)
+                                elif self.type == 1 or self.type == '1' 
+                                  or self.type == 2 or self.type =='2' 
+                                    or self.type == 3 or self.type == '3':
+                                    rescaled = self.reScaleNew(flippedlabel, nim1label.pixdim[1])
+                                    #contrast = self.contrast(rescaled)
+                                    norm = self.crop_size(contrast)
+                                #elif self.type == 3 or self.type == '3':
+                                 #   norm = self.reScaleNew(flippedlabel, nim1label.pixdim[1])
+                                """
                                 cropped = self.crop_size(flippedlabel)
+                                """
                                 outfilename = "{0}.npy".format(f)
-                                outpath = "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, patient)
+                                outpath = "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type patient)
 
                                 if not os.path.isdir(outpath):
                                     os.mkdir(outpath)
 
-                                np.save("{0}/{1}".format(outpath, outfilename), cropped)
+                                np.save("{0}/{1}".format(outpath, outfilename), norm)
 
                                 outfilenamenodes = outfilename.split('_')
                                 slicepath = "{0}_{1}".format(outfilenamenodes[0], outfilenamenodes[1])
@@ -194,10 +210,25 @@ class Method2(object):
                                     for f2 in files2:
                                         nim1 = nib.load(root2+'/'+f2)
                                         flipped = self.orientation_flip180(nim1.get_data())
+                                        
+                                        norm2 = None
+                                        
+                                        if self.type == 0 or self.type == '0':
+                                            contrast = self.contrast(flipped)
+                                            norm2 = self.croped_size(contrast)
+                                        elif self.type == 1 or self.type == '1'
+                                        or self.type == 2 or self.type == '2':
+                                            rescaled = self.reScaleNew(flipped, nim1.pixdim[1])
+                                            contrast = self.contrast(rescaled)
+                                            norm2 = self.croped_size(contrast)
+                                        elif self.type == 3 or self.type == '3':
+                                            norm2 = self.reScaleNew(flipped, nim1.pixdim[1])
+                                        """
                                         contrast_img2 = self.contrast(flipped)
                                         cropped2 = self.crop_size(contrast_img2)
+                                        """
                                         outfilename2 = "{0}.npy".format(f2)
-                                        np.save("{0}/{1}".format(outpath, outfilename2), cropped2)
+                                        np.save("{0}/{1}".format(outpath, outfilename2), norm2)
 
         def get_sunnybrook_files(self):
             for i in self.inputfiles:
@@ -223,6 +254,7 @@ class Method2(object):
                             print img.BitsStored, img.BitsAllocated
                             continue
 
+                        """
                         patientframe = dict()
                         patientframe.update({'filename': f})
                         patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
@@ -233,16 +265,28 @@ class Method2(object):
                         #patientslices.update({'PatientAge': dw.PatientAge})
 
                         patientslices[root].append(patientframe)
-
+                        """
+                        norm = None
+                        
+                        if self.type == 0 or self.type == '0':
+                                norm = self.original_method(dw)
+                        elif self.type == 1 or self.type == '1':
+                                norm = self.new_rescaling_method(dw)
+                        elif self.type == 2 or self.type == '2':
+                                norm = self.no_orientation_method
+                        elif self.type == 3 or self.type == '3':
+                                norm = self.rescaling_only_method(dw)
+                        """
                         img = self.getAlignImg(dw)
                         cropped = self.crop_size(img)
+                        """
                         outfilename = "{0}.npy".format(f)
-                        outpath =  "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, rootnode)
+                        outpath =  "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, rootnode)
 
                         if not os.path.isdir(outpath):
                             os.mkdir(outpath)
 
-                        np.save("{0}/{1}".format(outpath, outfilename), cropped)
+                        np.save("{0}/{1}".format(outpath, outfilename), norm)
 
         def original_method(self, dw):
             img = self.getAlignImg(dw)
