@@ -183,9 +183,7 @@ class Method2(object):
                                 if self.type == 0 or self.type == '0':
                                     #contrast = self.contrast(flippedlabel)
                                     norm = self.crop_size(flippedlabel)
-                                elif self.type == 1 or self.type == '1' 
-                                  or self.type == 2 or self.type =='2' 
-                                    or self.type == 3 or self.type == '3':
+                                elif self.type == 1 or self.type == '1' or self.type == 2 or self.type =='2' or self.type == 3 or self.type == '3':
                                     rescaled = self.reScaleNew(flippedlabel, nim1label.pixdim[1])
                                     #contrast = self.contrast(rescaled)
                                     norm = self.crop_size(contrast)
@@ -195,7 +193,7 @@ class Method2(object):
                                 cropped = self.crop_size(flippedlabel)
                                 """
                                 outfilename = "{0}.npy".format(f)
-                                outpath = "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type patient)
+                                outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, patient)
 
                                 if not os.path.isdir(outpath):
                                     os.mkdir(outpath)
@@ -216,8 +214,7 @@ class Method2(object):
                                         if self.type == 0 or self.type == '0':
                                             contrast = self.contrast(flipped)
                                             norm2 = self.croped_size(contrast)
-                                        elif self.type == 1 or self.type == '1'
-                                        or self.type == 2 or self.type == '2':
+                                        elif self.type == 1 or self.type == '1' or self.type == 2 or self.type == '2':
                                             rescaled = self.reScaleNew(flipped, nim1.pixdim[1])
                                             contrast = self.contrast(rescaled)
                                             norm2 = self.croped_size(contrast)
@@ -311,7 +308,7 @@ class Method2(object):
             rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
             return rescaled
         
-    def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
+        def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
 	    f = lambda x:np.asarray([float(a) for a in x]);
 	    o = f(img.image_orientation_patient);
 	    o1 = o[:3];
