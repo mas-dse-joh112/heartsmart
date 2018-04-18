@@ -20,7 +20,6 @@ class Method2(object):
             self.source = self.arg.source
             self.sourceinfo = None
             self.inputfiles = None
-            self.type = int(self.arg.type)
             self.filesource = dict()
 
         def get_config(self):
@@ -116,7 +115,6 @@ class Method2(object):
                                 print 'Error'
                                 sys.exit()
 
-                            """
                             patientframe = dict()
                             patientframe.update({'filename': f})
                             patientframe.update({'InPlanePhaseEncodingDirection': dw.in_plane_encoding_direction})
@@ -127,24 +125,11 @@ class Method2(object):
                             patientslices.update({'PatientAge': dw.PatientAge})
 
                             patientslices[root].append(patientframe)
-                            """
-                            norm = None
-                            
-                            if self.type == 0 or self.type == '0':
-                                norm = self.original_method(dw)
-                            elif self.type == 1 or self.type == '1':
-                                norm = self.new_rescaling_method(dw)
-                            elif self.type == 2 or self.type == '2':
-                                norm = self.no_orientation_method
-                            elif self.type == 3 or self.type == '3':
-                                norm = self.rescaling_only_method(dw)
 
-                            """
                             img = self.getAlignImg(dw)
                             cropped = self.crop_size(img)
-                            """
                             outfilename = "{0}_{1}.npy".format(rootnode, f)
-                            outpath = "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, dw.patient_id)
+                            outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.path, dw.patient_id)
 
                             if not os.path.isdir(outpath):
                                 os.mkdir(outpath)
@@ -244,30 +229,7 @@ class Method2(object):
 
                         np.save("{0}/{1}".format(outpath, outfilename), cropped)
 
-        def original_method(self, dw):
-            img = self.getAlignImg(dw)
-            cropped = self.crop_size(img)
-            return cropped
-        
-        def new_rescaling_method(self, dw):
-            img = self.getAlignImg(dw)
-            rescaled = reScaleNew(img, dw.spacing)
-            cropped = self.crop_size(resacled)
-            return cropped
-        
-        def no_orientation_method(self, dw):
-            img = dw.raw_file
-            rescaled = self.reScaleNew(img, img.PixelSpacing)
-            contrast = self.contrast(rescaled)
-            cropped = self.crop_size(contrast)
-            return cropped
-        
-        def rescaling_only_method(self, dw):
-            img = dw.raw_file
-            rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
-            return rescaled
-        
-    def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
+	def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
 	    f = lambda x:np.asarray([float(a) for a in x]);
 	    o = f(img.image_orientation_patient);
 	    o1 = o[:3];
@@ -313,9 +275,6 @@ class Method2(object):
 		    shift = shift - s;
 
 	    return res
-        
-        def reScaleNew(self, img, scale):
-            return cv2.resize(img, (0, 0), fx=scale[0], fy=scale[1])
 
 if __name__ == "__main__":
     import config
