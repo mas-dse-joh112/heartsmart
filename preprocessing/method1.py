@@ -105,7 +105,8 @@ class Method1(object):
                             for f in files:
                                 nim1dir = root.replace('/'+label,'')
                                 nim1label = nib.load(root+'/'+f)
-                                spacing = nim1label.header.get('pixdim')[1]
+                                spacing = nim1label.header.get('pixdim')
+                                #spacing = nim1label.header.get('pixdim')[1]
                                 flippedlabel = self.orientation_flip180(nim1label.get_data())
                                 norm = None
 
@@ -130,16 +131,17 @@ class Method1(object):
                                 for root2, _, files2 in os.walk(slicedir):
                                     for f2 in files2:
                                         nim1 = nib.load(root2+'/'+f2)
-                                        spacing2 = nim1.header.get('pixdim')[1]
+                                        spacing2 = nim1.header.get('pixdim')
+                                        #spacing2 = nim1.header.get('pixdim')[1]
                                         flipped = self.orientation_flip180(nim1.get_data())
 
                                         norm2 = None
 
-                                        if self.tyep == 0 or self.type == '0':
+                                        if self.type == 0 or self.type == '0':
                                             norm2 = self.original_method_acdc(flipped, spacing2)
-                                        elif self.tyep == 1 or self.type == '1':
+                                        elif self.type == 1 or self.type == '1':
                                             norm2 = self.new_rescaling_method_acdc(flipped, spacing2)
-                                        elif self.tyep == 3 or self.type == '3':
+                                        elif self.type == 3 or self.type == '3':
                                             norm2 = self.rescaling_only_method_acdc(flipped, spacing2)
 
                                         outfilename2 = "{0}.npy".format(f2)
