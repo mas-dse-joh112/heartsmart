@@ -107,17 +107,21 @@ class Method1(object):
                                 nim1label = nib.load(root+'/'+f)
                                 spacing = nim1label.header.get('pixdim')[1]
                                 flippedlabel = self.orientation_flip180(nim1label.get_data())
-                                rescaled = self.reScale(flippedlabel, spacing)
-                                cropped=self.get_square_crop(rescaled)
-                                converted = np.array(cropped, dtype=np.uint16)
-                                norm=self.CLAHEContrastNorm(converted)
+                                norm = None
+
+                                if self.type == 0 or self.type == '0':
+                                    norm = self.original_method_acdc(flippedlabel, spacing)
+                                elif self.type == 1 or self.type == '1' or self.type == 3 or self.type == '3':
+                                    norm = self.new_rescaling_method_acdc(flippedlabel, spacing, 1)
+
                                 outfilename = "{0}.npy".format(f)
-                                outpath = "{0}/{1}/{2}".format(preproc.normoutputs[self.source]['dir'], self.method, patient)
+                                outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, patient)
 
                                 if not os.path.isdir(outpath):
                                     os.mkdir(outpath)
 
-                                np.save("{0}/{1}".format(outpath, outfilename), norm)
+                                if norm is not None:
+                                    np.save("{0}/{1}".format(outpath, outfilename), norm)
 
                                 outfilenamenodes = outfilename.split('_')
                                 slicepath = "{0}_{1}".format(outfilenamenodes[0], outfilenamenodes[1])
@@ -128,13 +132,20 @@ class Method1(object):
                                         nim1 = nib.load(root2+'/'+f2)
                                         spacing2 = nim1.header.get('pixdim')[1]
                                         flipped = self.orientation_flip180(nim1.get_data())
-                                        rescaled2 = self.reScale(flipped, spacing2)
-                                        cropped2 = self.get_square_crop(rescaled2)
-                                        converted2 = np.array(cropped2, dtype=np.uint16)
-                                        norm2 = self.CLAHEContrastNorm(converted2)
-                                        outfilename2 = "{0}.npy".format(f2)
-                                        np.save("{0}/{1}".format(outpath, outfilename2), norm2)
 
+                                        norm2 = None
+
+                                        if self.tyep == 0 or self.type == '0':
+                                            norm2 = self.original_method_acdc(flipped, spacing2)
+                                        elif self.tyep == 1 or self.type == '1':
+                                            norm2 = self.new_rescaling_method_acdc(flipped, spacing2)
+                                        elif self.tyep == 3 or self.type == '3':
+                                            norm2 = self.rescaling_only_method_acdc(flipped, spacing2)
+
+                                        outfilename2 = "{0}.npy".format(f2)
+
+                                        if norm2 is not None:
+                                            np.save("{0}/{1}".format(outpath, outfilename2), norm2)
 
         def get_sunnybrook_files(self):
             for i in self.inputfiles:
@@ -187,7 +198,8 @@ class Method1(object):
                         if not os.path.isdir(outpath):
                             os.mkdir(outpath)
 
-                        np.save("{0}/{1}".format(outpath, outfilename), norm)
+                        if norm is not None:
+                            np.save("{0}/{1}".format(outpath, outfilename), norm)
 
         def get_dsb_files(self):
             for f in self.inputfiles:
@@ -246,9 +258,32 @@ class Method1(object):
                             if not os.path.isdir(outpath):
                                 os.mkdir(outpath)
 
-                            np.save("{0}/{1}".format(outpath, outfilename), norm)
+                            if norm is not None:
+                                np.save("{0}/{1}".format(outpath, outfilename), norm)
 
                     #self.update_filesource(patient, {'patientfiles':patientslices}, 1)
+
+        #Original method acdc
+        def original_method_acdc(self, img, spacing):
+            rescaled = self.reScale(img, spacing)
+            cropped = self.get_square_crop(rescaled)
+            converted = np.array(cropped, dtype=np.uint16)
+            return self.CLAHEContrastNorm(converted)
+
+        #New Rescaling acdc
+        def new_rescaling_method_acdc(self, img, spacing, label=0):
+            rescaled = self.reScaleNew(img, spacing)
+            cropped = self.get_square_crop(rescaled)
+
+            if label:
+                return cropped
+
+            converted = np.array(cropped, dtype=np.uint16)
+            return self.CLAHEContrastNorm(converted)
+
+        #Rescaling only acdc
+        def rescaling_only_method_acdc(self, img, spacing):
+            return self.reScaleNew(img, spacing)
 
         #Original method
         def original_method(self, dw, convert=0):
@@ -267,22 +302,21 @@ class Method1(object):
             img = self.InPlanePhaseEncoding(dw.raw_file)
             rescaled = self.reScaleNew(img, dw.spacing)
             cropped = self.get_square_crop(rescaled)
-            new_cropped = np.array(cropped, dtype=np.uint16)
-            return self.CLAHEContrastNorm(new_cropped)
+            converted = np.array(cropped, dtype=np.uint16)
+            return self.CLAHEContrastNorm(converted)
 
         #No Orientation
         def no_orientation_method(self, dw):
             img = dw.raw_file
             rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
             cropped = self.get_square_crop(rescaled)
-            new_cropped = np.array(cropped, dtype=np.uint16)
-            return self.CLAHEContrastNorm(new_cropped)
+            converted = np.array(cropped, dtype=np.uint16)
+            return self.CLAHEContrastNorm(converted)
 
         #Rescaling only
         def rescaling_only_method(self, dw):
             img = dw.raw_file
-            rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
-            return rescaled
+            return self.reScaleNew(img.pixel_array, img.PixelSpacing)
 
 	#Function that uses the InPlanephaseEncoding to determine if COL or ROW based and then transposes and flips the image. 
 	def InPlanePhaseEncoding (self, img):
