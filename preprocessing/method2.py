@@ -176,6 +176,7 @@ class Method2(object):
                             for f in files:
                                 nim1dir = root.replace('/'+label,'')
                                 nim1label = nib.load(root+'/'+f)
+                                spacing = nim1label.header.get('pixdim')[1:3]
                                 flippedlabel = self.orientation_flip180(nim1label.get_data())
                                 
                                 norm = None
@@ -183,15 +184,10 @@ class Method2(object):
                                 if self.type == 0 or self.type == '0':
                                     #contrast = self.contrast(flippedlabel)
                                     norm = self.crop_size(flippedlabel)
-                                elif self.type == 1 or self.type == '1' or self.type == 2 or self.type =='2' or self.type == 3 or self.type == '3':
-                                    rescaled = self.reScaleNew(flippedlabel, nim1label.pixdim[1])
-                                    #contrast = self.contrast(rescaled)
-                                    norm = self.crop_size(contrast)
-                                #elif self.type == 3 or self.type == '3':
-                                 #   norm = self.reScaleNew(flippedlabel, nim1label.pixdim[1])
-                                """
-                                cropped = self.crop_size(flippedlabel)
-                                """
+                                elif self.type == 1 or self.type == '1' or self.type == 3 or self.type == '3':
+                                    
+                                    norm = self.new_rescaling_method_acdc(flippedlabel, spacing, 1)
+                                    
                                 outfilename = "{0}.npy".format(f)
                                 outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, patient)
 
@@ -207,6 +203,7 @@ class Method2(object):
                                 for root2, _, files2 in os.walk(slicedir):
                                     for f2 in files2:
                                         nim1 = nib.load(root2+'/'+f2)
+                                        spacing2 = nim1.header.get('pixdim')[1:3]
                                         flipped = self.orientation_flip180(nim1.get_data())
                                         
                                         norm2 = None
@@ -214,16 +211,11 @@ class Method2(object):
                                         if self.type == 0 or self.type == '0':
                                             contrast = self.contrast(flipped)
                                             norm2 = self.croped_size(contrast)
-                                        elif self.type == 1 or self.type == '1' or self.type == 2 or self.type == '2':
-                                            rescaled = self.reScaleNew(flipped, nim1.pixdim[1])
-                                            contrast = self.contrast(rescaled)
-                                            norm2 = self.croped_size(contrast)
+                                        elif self.type == 1 or self.type == '1':
+                                            norm2 = self.new_rescaling_method_acdc(flipped,spacing2)
                                         elif self.type == 3 or self.type == '3':
-                                            norm2 = self.reScaleNew(flipped, nim1.pixdim[1])
-                                        """
-                                        contrast_img2 = self.contrast(flipped)
-                                        cropped2 = self.crop_size(contrast_img2)
-                                        """
+                                            norm2 = self.reScaleNew(flipped, spacing2)
+
                                         outfilename2 = "{0}.npy".format(f2)
                                         np.save("{0}/{1}".format(outpath, outfilename2), norm2)
 
@@ -307,6 +299,18 @@ class Method2(object):
             img = dw.raw_file
             rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
             return rescaled
+        
+        def new_rescaling_method_acdc(self, img, spacing, label=0):
+            rescaled = self.reScaleNew(img, spacing)
+            cropped = self.crop_size(rescaled)
+            
+            if label:
+                return cropped
+            
+            contrast = self.contrast(cropped)
+            
+            return contrast
+            
         
         def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
 	    f = lambda x:np.asarray([float(a) for a in x]);
