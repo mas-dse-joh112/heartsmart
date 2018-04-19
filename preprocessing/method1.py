@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import glob
 import sys
 import dicom
 import os
@@ -43,6 +44,11 @@ class Method1(object):
 
             if self.source == 'sunnybrook':
                 self.update_filesource('source', self.source)
+
+                if self.path == 'challenge':
+                    self.get_sunnybrook_files2()
+                    return
+
                 self.get_sunnybrook_files()
                 return
 
@@ -114,7 +120,6 @@ class Method1(object):
                                     norm = self.original_method_acdc(flippedlabel, spacing)
                                 elif self.type == 1 or self.type == '1' or self.type == 3 or self.type == '3':
                                     norm = self.new_rescaling_method_acdc(flippedlabel, spacing, 1)
-                                    #norm = self.new_rescaling_method_acdc(flippedlabel, nim1label.pixdim
 
                                 outfilename = "{0}.npy".format(f)
                                 outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, patient)
@@ -149,6 +154,50 @@ class Method1(object):
 
                                         if norm2 is not None:
                                             np.save("{0}/{1}".format(outpath, outfilename2), norm2)
+
+        def get_sunnybrook_files2(self):
+            for i in self.inputfiles:
+                if i.endswith('pdf'):
+                    continue
+
+                for root, _, files in os.walk(i):
+                    rootnode = root.split("/")[-1] # sax file
+
+                    newroot = root.replace(self.path, '*')
+                    newfile = None
+
+                    for f in files:
+                        if f.endswith('.dcm.img.npy'):
+
+                            newfile = f.replace('.img.npy', '')
+                            lblfile = f.replace('.img.npy', '.label.npy')
+
+                            for nfile in glob.glob("{0}/{1}".format(newroot,newfile)):
+                                nodes = nfile.split('/')
+                                nroot = "/".join(nodes[:-1])
+                                dw = None
+                                norm = None
+
+                                dw = dicomwrapper(nroot+'/', newfile)
+                                npyload = np.load("{0}/{1}".format(i,lblfile))
+
+                                if self.type == 0 or self.type == '0':
+                                    norm = self.original_method_npy(dw, npyload, 1)
+                                elif self.type == 1 or self.type == '1':
+                                    norm = self.new_rescaling_method_acdc(npyload, dw.spacing, 1)
+                                elif self.type == 2 or self.type == '2':
+                                    norm = self.no_orientation_npy(npyload, dw.spacing, 1)
+                                elif self.type == 3 or self.type == '3':
+                                    norm = self.rescaling_only_method_acdc(npyload, dw.spacing)
+
+                                outfilename = lblfile
+                                outpath =  "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, rootnode)
+
+                                if not os.path.isdir(outpath):
+                                    os.mkdir(outpath)
+
+                                if norm is not None:
+                                    np.save("{0}/{1}".format(outpath, outfilename), norm)
 
         def get_sunnybrook_files(self):
             for i in self.inputfiles:
@@ -266,6 +315,24 @@ class Method1(object):
 
                     #self.update_filesource(patient, {'patientfiles':patientslices}, 1)
 
+        #Original method npy
+        def original_method_npy(self, dw, npyarray, convert):
+            nimg = None
+
+	    if dw.in_plane_encoding_direction == 'COL':
+	        nimg = cv2.transpose(npyarray)
+	    else:
+	        nimg = npyarray
+
+            rescaled = self.reScale(nimg, dw.spacing[0])
+            cropped = self.get_square_crop(rescaled)
+
+            if convert:
+                converted = np.array(cropped, dtype=np.uint16)
+                return self.CLAHEContrastNorm(converted)
+
+            return self.CLAHEContrastNorm(cropped)
+
         #Original method acdc
         def original_method_acdc(self, img, spacing):
             rescaled = self.reScale(img, spacing)
@@ -273,7 +340,7 @@ class Method1(object):
             converted = np.array(cropped, dtype=np.uint16)
             return self.CLAHEContrastNorm(converted)
 
-        #New Rescaling acdc
+        #New Rescaling acdc and sunnybrook
         def new_rescaling_method_acdc(self, img, spacing, label=0):
             rescaled = self.reScaleNew(img, spacing)
             cropped = self.get_square_crop(rescaled)
@@ -284,7 +351,7 @@ class Method1(object):
             converted = np.array(cropped, dtype=np.uint16)
             return self.CLAHEContrastNorm(converted)
 
-        #Rescaling only acdc
+        #Rescaling only acdc and sunnybrook
         def rescaling_only_method_acdc(self, img, spacing):
             return self.reScaleNew(img, spacing)
 
@@ -305,6 +372,17 @@ class Method1(object):
             img = self.InPlanePhaseEncoding(dw.raw_file)
             rescaled = self.reScaleNew(img, dw.spacing)
             cropped = self.get_square_crop(rescaled)
+            converted = np.array(cropped, dtype=np.uint16)
+            return self.CLAHEContrastNorm(converted)
+
+        #No Orientation npy
+        def no_orientation_npy(self, img, spacing, label):
+            rescaled = self.reScaleNew(img, spacing)
+            cropped = self.get_square_crop(rescaled)
+
+            if label:
+                return cropped
+
             converted = np.array(cropped, dtype=np.uint16)
             return self.CLAHEContrastNorm(converted)
 
