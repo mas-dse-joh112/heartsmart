@@ -105,7 +105,7 @@ class Method1(object):
                             for f in files:
                                 nim1dir = root.replace('/'+label,'')
                                 nim1label = nib.load(root+'/'+f)
-                                spacing = nim1label.header.get('pixdim')
+                                spacing = nim1label.header.get('pixdim')[1:3]
                                 #spacing = nim1label.header.get('pixdim')[1]
                                 flippedlabel = self.orientation_flip180(nim1label.get_data())
                                 norm = None
@@ -114,6 +114,7 @@ class Method1(object):
                                     norm = self.original_method_acdc(flippedlabel, spacing)
                                 elif self.type == 1 or self.type == '1' or self.type == 3 or self.type == '3':
                                     norm = self.new_rescaling_method_acdc(flippedlabel, spacing, 1)
+                                    #norm = self.new_rescaling_method_acdc(flippedlabel, nim1label.pixdim
 
                                 outfilename = "{0}.npy".format(f)
                                 outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, patient)
@@ -131,7 +132,7 @@ class Method1(object):
                                 for root2, _, files2 in os.walk(slicedir):
                                     for f2 in files2:
                                         nim1 = nib.load(root2+'/'+f2)
-                                        spacing2 = nim1.header.get('pixdim')
+                                        spacing2 = nim1.header.get('pixdim')[1:3]
                                         #spacing2 = nim1.header.get('pixdim')[1]
                                         flipped = self.orientation_flip180(nim1.get_data())
 
