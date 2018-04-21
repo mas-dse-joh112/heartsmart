@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import glob
 import sys
 import dicom
 import os
@@ -44,6 +45,11 @@ class Method2(object):
 
             if self.source == 'sunnybrook':
                 self.update_filesource('source', self.source)
+
+                if self.path == 'challenge':
+                    self.get_sunnybrook_files2()
+                    return
+
                 self.get_sunnybrook_files()
                 return
 
@@ -219,6 +225,49 @@ class Method2(object):
                                         outfilename2 = "{0}.npy".format(f2)
                                         np.save("{0}/{1}".format(outpath, outfilename2), norm2)
 
+        def get_sunnybrook_files2(self):
+            for i in self.inputfiles:
+                if i.endswith('pdf'):
+                    continue
+
+                for root, _, files in os.walk(i):
+                    rootnode = root.split("/")[-1] # sax file
+
+                    newroot = root.replace(self.path, '*')
+                    newfile = None
+
+                    for f in files:
+                        if f.endswith('.dcm.img.npy'):
+
+                            newfile = f.replace('.img.npy', '')
+                            lblfile = f.replace('.img.npy', '.label.npy')
+
+                            for nfile in glob.glob("{0}/{1}".format(newroot,newfile)):
+                                nodes = nfile.split('/')
+                                nroot = "/".join(nodes[:-1])
+                                norm = None
+
+                                dw = dicomwrapper(nroot+'/', newfile)
+                                npyload = np.load("{0}/{1}".format(i,lblfile))
+
+                                if self.type == 0 or self.type == '0':
+                                    norm = self.original_method(dw, npyload)
+                                elif self.type == 1 or self.type == '1':
+                                    norm = self.new_rescaling_method(dw, npyload)
+                                elif self.type == 2 or self.type == '2':
+                                    norm = self.no_orientation_npy(npyload, dw.spacing, 1)
+                                elif self.type == 3 or self.type == '3':
+                                    norm = self.rescaling_only_method_acdc(npyload, dw.spacing)
+
+                                outfilename = lblfile
+                                outpath =  "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, rootnode)
+
+                                if not os.path.isdir(outpath):
+                                    os.mkdir(outpath)
+
+                                if norm is not None:
+                                    np.save("{0}/{1}".format(outpath, outfilename), norm)
+
         def get_sunnybrook_files(self):
             for i in self.inputfiles:
                 if i.endswith('pdf'):
@@ -258,13 +307,13 @@ class Method2(object):
                         norm = None
                         
                         if self.type == 0 or self.type == '0':
-                                norm = self.original_method(dw)
+                            norm = self.original_method(dw)
                         elif self.type == 1 or self.type == '1':
-                                norm = self.new_rescaling_method(dw)
+                            norm = self.new_rescaling_method(dw)
                         elif self.type == 2 or self.type == '2':
-                                norm = self.no_orientation_method
+                            norm = self.no_orientation_method
                         elif self.type == 3 or self.type == '3':
-                                norm = self.rescaling_only_method(dw)
+                            norm = self.rescaling_only_method(dw)
                         """
                         img = self.getAlignImg(dw)
                         cropped = self.crop_size(img)
@@ -277,29 +326,40 @@ class Method2(object):
 
                         np.save("{0}/{1}".format(outpath, outfilename), norm)
 
-        def original_method(self, dw):
-            img = self.getAlignImg(dw)
+        def original_method(self, dw, label=None):
+            img = self.getAlignImg(dw, label)
             cropped = self.crop_size(img)
             return cropped
         
-        def new_rescaling_method(self, dw):
-            img = self.getAlignImg(dw)
-            rescaled = reScaleNew(img, dw.spacing)
-            cropped = self.crop_size(resacled)
-            return cropped
+        def new_rescaling_method(self, dw, label=None):
+            img = self.getAlignImg(dw, label)
+            rescaled = self.reScaleNew(img, dw.spacing)
+            return self.crop_size(rescaled)
         
+        #No Orientation npy
+        def no_orientation_npy(self, img, spacing, label):
+            rescaled = self.reScaleNew(img, spacing)
+            cropped = self.crop_size(rescaled)
+
+            if label:
+                return cropped
+
+            return self.contrast(cropped)
+
         def no_orientation_method(self, dw):
             img = dw.raw_file
             rescaled = self.reScaleNew(img, img.PixelSpacing)
             contrast = self.contrast(rescaled)
-            cropped = self.crop_size(contrast)
-            return cropped
+            return self.crop_size(contrast)
         
         def rescaling_only_method(self, dw):
             img = dw.raw_file
-            rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
-            return rescaled
+            return self.reScaleNew(img.pixel_array, img.PixelSpacing)
         
+        #Rescaling only acdc and sunnybrook
+        def rescaling_only_method_acdc(self, img, spacing):
+            return self.reScaleNew(img, spacing)
+
         def new_rescaling_method_acdc(self, img, spacing, label=0):
             rescaled = self.reScaleNew(img, spacing)
             cropped = self.crop_size(rescaled)
@@ -307,11 +367,8 @@ class Method2(object):
             if label:
                 return cropped
             
-            contrast = self.contrast(cropped)
+            return self.contrast(cropped)
             
-            return contrast
-            
-        
         def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
 	    f = lambda x:np.asarray([float(a) for a in x]);
 	    o = f(img.image_orientation_patient);
@@ -324,16 +381,17 @@ class Method2(object):
 	    theta = theta * np.sign(np.dot(oh,np.cross(o2,o2new)));
 	    im_max = np.percentile(img.pixel_array.flatten(),99);
 	    res = imrotate(np.array(np.clip(np.array(img.pixel_array,dtype=np.float)/im_max*256,0,255),dtype=np.uint8),theta);
+
 	    if label is None:
 		return res;
 	    else:
-		lab = imrotate(label,theta);
-		return res,lab
+		return imrotate(label,theta);
 	    
 	#Crop the image
 	def crop_size(self, res):
 	    shift  = np.array([0,0])
 	    img_L=int(np.min(180)) #NEED TO UPDATE BASED ON COMMON IMAGE 
+
 	    if res.shape[0]>res.shape[1]:
 		s = (res.shape[0]-res.shape[1])//2;
 		res = res[s:s+res.shape[1],:];
