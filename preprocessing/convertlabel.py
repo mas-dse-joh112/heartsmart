@@ -8,8 +8,8 @@ import numpy as np
 
 def fix_acdc(im):
     max_val=im.max()
-    im[im<max]=0
-    im[im==max]=1
+    im[im<max_val]=0
+    im[im==max_val]=1
     return im
 
 def do_convert(method, type):
