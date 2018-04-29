@@ -60,21 +60,22 @@ class Image_info_map(object):
         self.ctr_path = ctr_path
         #print (ctr_path)
         #/opt/output/dsb/norm/1/3/test/1111/sax_13_IM-2680-0008.dcm.npy
-        match = re.search(r"/([^/]*)/sax_(\d+)_IM-(\d+)-(\d+-?\d?).dcm.npy", ctr_path)
+        match = re.search(r"/([^/]*)/sax_(\d+)_IM-(\d+)-(\d+(-\d+)?).dcm.npy", ctr_path)
         #match = re.search(r"/([^/]*)/patient\d+_slice(\d+)_frame(\d+)_label_fix.nii.npy", ctr_path)
-        try:
-            self.case = shrink_case(match.group(1))
-            self.sax_num = int (match.group(2))
-            self.record = int(match.group(3))
-            self.img_no = int(match.group(4))
-        except AttributeError:
-            print ('IN EXCEPT', ctr_path)
+        #try:
+        self.case = shrink_case(match.group(1))
+        self.sax_num = int (match.group(2))
+        self.record = int(match.group(3))
+        self.img_no = match.group(4)
+            #self.img_no = int(match.group(4))
+        #except AttributeError:
+        #    print ('IN EXCEPT', ctr_path)
             #/opt/output/dsb/norm/1/3/train/234/sax_20_IM-3098-0022-0007.dcm.npy
-            match = re.search(r"/([^/]*)/sax_(\d+)_IM-(\d+)-(\d+)-(\d+).dcm.npy", ctr_path)
-            self.case = shrink_case(match.group(1))
-            self.sax_num = int (match.group(2))
-            self.record = int(match.group(3))
-            self.img_no = int(match.group(5))
+        #    match = re.search(r"/([^/]*)/sax_(\d+)_IM-(\d+)-(\d+)-(\d+).dcm.npy", ctr_path)
+        #    self.case = shrink_case(match.group(1))
+        #    self.sax_num = int (match.group(2))
+        #    self.record = int(match.group(3))
+        #    self.img_no = int(match.group(5))
             
     def __str__(self):
         return "<Image info for case %s, record %d image %d>" % (self.case, self.record, self.img_no)
@@ -89,6 +90,10 @@ def get_dsb_image_list(data_path):
     
     print("Number of examples: {:d}".format(len(image_list)))
     
+    if len(image_list) == 0:
+        print ("STOP")
+        sys.exit()
+
     print (image_list[0], image_list[-1])
     
     extracted = list(map(Image_info_map, image_list))
@@ -170,35 +175,33 @@ if __name__ == "__main__":
 
     img_path_list_file = UNET_TRAIN_DIR + SOURCE + "_{0}_image_path.txt".format(arg)
 
-    print ('IPLF', img_path_list_file)
-
     filepath = "{0}{1}".format(TRAIN_IMG_DIR,arg)
 
     img_path_list, extracted_info = get_dsb_image_list(filepath)
     img_count = len(img_path_list)
     print("Processing {:d} images and labels...".format(img_count))
 
-    image_list, image_path_list, extracted_info = get_dsb_images(img_path_list, img_count, crop_size=176)
+    image_size = 176
+    image_list, image_path_list, extracted_info = get_dsb_images(img_path_list, img_count, image_size)
 
     with open(img_path_list_file, 'w') as output:
         output.write("{0}\n".format(",".join(image_path_list)))
 
-    image_list2, image_path_list2, extracted_info2 = get_dsb_images(img_path_list, img_count, crop_size=249)
-
-    ### Create 256x256 size train/test data in 4d tensor shape and save them
-
     if len(image_list) > 0:
-        image_size = 176
         img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(arg, image_size)
         convert_images_to_nparray_and_save(image_list, img_file, image_size)
     else:
         print ("No Data", img_file)
         sys.exit()
 
+    image_size2 = 256
+    image_list2, image_path_list2, extracted_info2 = get_dsb_images(img_path_list, img_count, image_size2)
+
+    ### Create 256x256 size train/test data in 4d tensor shape and save them
+
     if len(image_list2) > 0:
-        image_size = 256
-        img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(arg, image_size)
-        convert_images_to_nparray_and_save (image_list2, img_file, image_size)
+        img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(arg, image_size2)
+        convert_images_to_nparray_and_save (image_list2, img_file, image_size2)
     else:
         print ("No Data", img_file)
         sys.exit()
