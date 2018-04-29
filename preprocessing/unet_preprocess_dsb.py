@@ -29,8 +29,9 @@ TRAIN_TEST_SPLIT_RATIO = 0.1  # train/test split ratio for Sunnybrook and ACDC d
 
 BASE_DIR = "/opt/output/"
 SOURCE = "dsb"
-TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/test/"
-UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model_test/data/"
+PATH = "train"
+TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/{0}/".format(PATH)
+UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model_{0}/data/".format(PATH)
 
 ##################################
 #
@@ -168,14 +169,25 @@ def convert_images_to_nparray_and_save (imgs, save_file, image_size):
 
 
 if __name__ == "__main__":
-    arg = sys.argv[1]
+    arg = sys.argv[1:]
 
-    if not arg.isdigit:
+    print (arg)
+
+    if len(arg) != 2:
+        print ("pythong3 unet_preprocess_dsb.py 966 test")
+        print ("patient id folder, and test, train, or validate")
         sys.exit()
 
-    img_path_list_file = UNET_TRAIN_DIR + SOURCE + "_{0}_image_path.txt".format(arg)
+    patient, PATH = arg[0], arg[1]
 
-    filepath = "{0}{1}".format(TRAIN_IMG_DIR,arg)
+    TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/{0}/".format(PATH)
+    UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model_{0}/data/".format(PATH)
+
+    print (TRAIN_IMG_DIR,UNET_TRAIN_DIR)
+
+    img_path_list_file = UNET_TRAIN_DIR + SOURCE + "_{0}_image_path.txt".format(patient)
+
+    filepath = "{0}{1}".format(TRAIN_IMG_DIR,patient)
 
     img_path_list, extracted_info = get_dsb_image_list(filepath)
     img_count = len(img_path_list)
@@ -188,7 +200,7 @@ if __name__ == "__main__":
         output.write("{0}\n".format(",".join(image_path_list)))
 
     if len(image_list) > 0:
-        img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(arg, image_size)
+        img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(patient, image_size)
         convert_images_to_nparray_and_save(image_list, img_file, image_size)
     else:
         print ("No Data", img_file)
@@ -200,7 +212,7 @@ if __name__ == "__main__":
     ### Create 256x256 size train/test data in 4d tensor shape and save them
 
     if len(image_list2) > 0:
-        img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(arg, image_size2)
+        img_file = UNET_TRAIN_DIR + SOURCE + "_{0}_{1}_train.npy".format(patient, image_size2)
         convert_images_to_nparray_and_save (image_list2, img_file, image_size2)
     else:
         print ("No Data", img_file)
