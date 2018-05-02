@@ -629,14 +629,15 @@ if __name__ == "__main__":
     arg = sys.argv[1:]
     #patient = 884
     #image_size = 256
-    if len(arg) != 2:
-        print ('provide patient number and 256 (or 176)')
+    #source_type = "test"
+    if len(arg) != 3:
+        print ('provide patient number, 256 (or 176), and test (train or validate)')
         sys.exit()
 
-    patient, image_size = arg
+    patient, image_size, source_type = arg
     patient = int(patient)
     image_size = int(image_size)
-    dsb_source = "unet_model_test"
+    dsb_source = "unet_model_{0}".format(source_type)
     test_source_path = "/opt/output/dsb/norm/1/3"
 
     #test_image_list = [#"/opt/output/dsb/norm/1/3/unet_model_test/data/dsb_884_256_train.npy", \
