@@ -8,7 +8,7 @@ import glob
 import random
 import json
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 import numpy as np
 from keras.models import *
 from keras.layers import Input, concatenate, merge, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Cropping2D
@@ -18,6 +18,7 @@ from keras import backend as keras
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
 from keras.losses import binary_crossentropy
 import keras.backend as K
+from helpers_dicom import DicomWrapper as dicomwrapper
 
 #Fix the random seeds for numpy (this is for Keras) and for tensorflow backend to reduce the run-to-run variance
 from numpy.random import seed
@@ -34,14 +35,17 @@ print("\nSuccessfully imported packages!!!\n")
 
 
 class myUnet(object):
-    def __init__(self, image_size = 256, model_type = "small"):
+    def __init__(self, patient, source_type, image_size = 256, model_type = "small"):
         self.img_rows = image_size
         self.img_cols = image_size
+        self.patient = patient
+        self.source_type = source_type
         self.model_type = model_type
         self.image_4d_file = None
         self.image_source_file = None
-        self.image_zero_file = None
+        self.image_one_file = None
         self.sourcedict = dict()
+
 
         if model_type == "small":
             self.build_unet_small()
@@ -514,26 +518,82 @@ class myUnet(object):
     
     def dump_and_sort(self):
         count = 0
-        with open(self.image_zero_file, 'r') as inputs:
+        slicedict = {}
+        origpath = '/masvol/data/dsb/'+self.source_type+'/'+str(self.patient)+'/study/'
+        new_path = '/opt/output/dsb/volume/1/3/'+self.source_type+'_'+str(self.patient)+'.json'
+
+        with open(self.image_one_file, 'r') as inputs:
             jin = json.load(inputs)
 
             for i in sorted(jin):
                 count += 1
-                print (i, jin[i], jin[i]['zeroes'])
+                rootnode = i.split("/")
+                tmp=rootnode[-1].split('_')
+                sax = tmp[0] +'_'+ tmp[1]
+                frame = tmp[-1]
+                #print (sax, frame)
 
-                if count > 10:
-                    break
+                if sax in slicedict:
+                    slicedict[sax].update({frame: jin[i]})
+                else:
+                    slicedict.update({sax: {frame: jin[i]}})
 
-    def sort_by_slice(self):
-        for i in sorted(self.sourcedict):
-            print (i, self.sourcedict[i])
+                #print (sax, frame)
+            min_max = self.get_min_max_slice(slicedict, origpath)
+            print (min_max)
+            
+            with open(new_path, 'w') as output:
+                output.write("{0}\n".format(json.dumps(min_max)))
 
-    def get_min_max(self):
-        zmin = 9999999
-        zminidx = None
-        zmax = 0
-        zmaxidx = None
+    def get_min_max_slice(self, slicedict, origpath):
+        identified = {}
 
+        for i in slicedict: #i is sax
+            zmin = 9999999
+            zmax = 0
+            zminframe = ''
+            zmaxframe = ''
+
+            for j in slicedict[i]: #j is frame
+                zcount = slicedict[i][j]['ones']
+                
+                if zcount < zmin:
+                    zmin = zcount
+                    zminframe = j
+
+                if zcount > zmax:
+                    zmax = zcount
+                    zmaxframe = j
+
+            maxpath = i+'/'+zmaxframe.strip('.npy')
+            minpath = i+'/'+zminframe.strip('.npy')
+            maxsl = None
+            minsl = None
+
+            try:
+                maxdw = dicomwrapper(origpath, maxpath )
+                maxsl = maxdw.slice_location()
+            except:
+                print (origpath, maxpath)
+                maxsl = None
+ 
+            try:
+                mindw = dicomwrapper(origpath, minpath)
+                minsl = mindw.slice_location()
+            except:
+                print (origpath, minpath)
+                minsl = None
+
+            identified[i] = {'zmin':zmin,
+                             'zminframe': zminframe,
+                             'minSL': minsl,
+                             'zmax': zmax,
+                             'zmaxframe': zmaxframe,
+                             'maxSL': maxsl}
+        #print (identified)
+        return identified
+
+    def get_ones(self):
         print ('l', len(self.predictions))
         sourcefiles = []
 
@@ -544,29 +604,16 @@ class myUnet(object):
         print ('SF',len(sourcefiles))
 
         for i in sourcefiles:
-            self.sourcedict[i] = {'zeroes':0} # init, may not have prediction
+            self.sourcedict[i] = {'ones':0} # init, may not have prediction
 
-        for i in  range(len(self.predictions)):
-            #print (self.predictions[i])
-            zcount = np.count_nonzero(self.predictions[i]==0)
-            #print ('z',zcount)
-            self.sourcedict.update({sourcefiles[i]: {'zeroes':zcount}}) # save zero count for now
+        pred2  = np.round(self.predictions)
+        print (pred2.shape)
 
-            if zcount < zmin:
-                zmin = zcount
-                zminidx = i
+        for i in range(len(pred2)):
+            zcount = np.count_nonzero(pred2[i])
+            self.sourcedict.update({sourcefiles[i]: {'ones':zcount}}) # save ones count for now
 
-            if zcount > zmax:
-                zmax = zcount    
-                zmaxidx = i
-
-        #print ('min', zminidx)
-        #print ('max', zmaxidx)
-        #print ('min',sourcefiles[zminidx])
-        #print ('max',sourcefiles[zmaxidx])
-        #print (self.sourcedict)
-
-        with open(self.image_zero_file, 'w') as output:
+        with open(self.image_one_file, 'w') as output:
             output.write("{0}\n".format(json.dumps(self.sourcedict)))
 
     def plot_accuracy_and_loss(self):
@@ -650,7 +697,7 @@ if __name__ == "__main__":
 
     print('-'*30)
     print ("Creating U-net model...")
-    mymodel = myUnet(image_size = image_size, model_type = "large")
+    mymodel = myUnet(patient, source_type, image_size = image_size, model_type = "large")
     print('-'*30)
     print ("Loading the pre-trained weights...")
     mymodel.load_pretrained_weights(model_file)
@@ -658,9 +705,9 @@ if __name__ == "__main__":
     
     mymodel.image_4d_file = "{0}/{1}/data/dsb_{2}_{3}_train.npy".format(test_source_path, dsb_source, patient, image_size)
     mymodel.image_source_file = "{0}/{1}/data/dsb_{2}_image_path.txt".format(test_source_path, dsb_source, patient)
-    mymodel.image_zero_file = "{0}/{1}/models/dsb_{2}_{3}_zero_count.json".format(test_source_path, dsb_source, patient, image_size)
+    mymodel.image_one_file = "{0}/{1}/models/dsb_{2}_{3}_one_count.json".format(test_source_path, dsb_source, patient, image_size)
 
     mymodel.do_predict()
-    mymodel.get_min_max()
+    mymodel.get_ones()
     #mymodel.sort_by_slice()
-    #mymodel.dump_and_sort()
+    mymodel.dump_and_sort()
