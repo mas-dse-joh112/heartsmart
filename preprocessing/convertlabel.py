@@ -16,7 +16,10 @@ def fix_acdc(im):
         im[im<max_val]=0
         im[im==max_val]=1
 
-    return im, 0
+    if np.count_nonzero(im) > 0:
+        return im, 0
+
+    return im, 1
 
 def do_delete(method, type):
     imgpath = "/opt/output/acdc/norm/{0}/{1}/update/*".format(method, type)
@@ -74,10 +77,11 @@ def do_convert(method, type):
 
             if delete:
                 nolv += 1
-                #print ('deleting, no LV', j, image)
+                print ('deleting, no LV or empty', j, image)
                 os.remove(j)
                 image = image.replace('rame0','rame')
                 os.remove(image)
+                continue
 
             outfile = j.replace('label','label_fix')
             outfile = outfile.replace('rame0','rame')
@@ -90,10 +94,10 @@ def do_convert(method, type):
                 os.mkdir(newpath)
 
             outfile = "{0}/{1}".format(newpath,nodes[-1])
-            print (outfile)
+            #print (outfile)
             np.save(outfile, img)
 
-    print ('total nolv found ', nolv)
+    print ('total nolv and empty found ', nolv)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -103,5 +107,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     method = args.method
     type = args.type
-    #do_convert(method, type)
+    do_convert(method, type)
     do_delete(method, type)
