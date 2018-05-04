@@ -8,33 +8,92 @@ import numpy as np
 
 def fix_acdc(im):
     max_val=im.max()
-    im[im<max_val]=0
-    im[im==max_val]=1
-    return im
 
-def do_convert(method, type):
-    imgpath = "/opt/output/acdc/norm/{0}/{1}/*".format(method, type)
-    outpath = "/opt/output/acdc/norm/{0}/{1}L".format(method, type)
+    if max_val != 0:
+        if max_val < 3:
+            return im, 1
+
+        im[im<max_val]=0
+        im[im==max_val]=1
+
+    return im, 0
+
+def do_delete(method, type):
+    imgpath = "/opt/output/acdc/norm/{0}/{1}/update/*".format(method, type)
+    lblpath = "/opt/output/acdc/norm/{0}/{1}L".format(method, type)
+
+    lblcount = 0
+    lblfound = 0
+    removeimg = 0
 
     for i in glob.glob(imgpath):
-	print (i)
+        print (i)
 
-	for j in glob.glob("{0}/*".format(i)):
-	    if 'label' not in j:
-		continue
+        for j in glob.glob("{0}/*".format(i)):
+            if 'label' in j:
+                print ('removing old lbl', j)
+                os.remove(j)
+                lblcount += 1
+                continue
 
-	    print (j)
-	    img = fix_acdc(np.load(j))
-	    outfile = j.replace('label','label_fix')
-	    nodes = outfile.split('/')
-	    newpath = "{0}/{1}".format(outpath,nodes[-2])
+            nodes = j.split('/')
+            lblfile = "{0}/{1}/{2}".format(lblpath,nodes[-2],nodes[-1])
+            lblfile = lblfile.replace(".nii","_label_fix.nii")
+            #print ('lblfile', lblfile)
 
-	    if not os.path.isdir(newpath):
-		os.mkdir(newpath)
+            if os.path.isfile(lblfile):
+                print ('found', lblfile)
+                lblfound += 1
+                continue
 
-	    outfile = "{0}/{1}".format(newpath,nodes[-1])
-	    print (outfile)
-	    np.save(outfile, img)
+            removeimg += 1
+            #print ('removing image ', j)
+            os.remove(j)
+
+    print ('lblcount', lblcount)
+    print ('lblfound', lblfound)
+    print ('removeimg', removeimg)
+
+def do_convert(method, type):
+    #imgpath = "/opt/output/acdc/norm/{0}/{1}/*".format(method, type)
+    imgpath = "/opt/output/acdc/norm/{0}/{1}/update/*".format(method, type)
+    outpath = "/opt/output/acdc/norm/{0}/{1}L".format(method, type)
+    nolv = 0
+    print ('imgpath', imgpath)
+
+    for i in glob.glob(imgpath):
+        print (i)
+
+        for j in glob.glob("{0}/*".format(i)):
+            if 'label' not in j:
+                continue
+
+            print (j)
+            img, delete = fix_acdc(np.load(j))
+            image = j.replace('_label','')
+
+            if delete:
+                nolv += 1
+                #print ('deleting, no LV', j, image)
+                os.remove(j)
+                image = image.replace('rame0','rame')
+                os.remove(image)
+
+            outfile = j.replace('label','label_fix')
+            outfile = outfile.replace('rame0','rame')
+            nodes = outfile.split('/')
+            print ('nodes', nodes)
+            newpath = "{0}/{1}".format(outpath,nodes[-2])
+            print ('newpath', newpath)
+
+            if not os.path.isdir(newpath):
+                os.mkdir(newpath)
+
+            outfile = "{0}/{1}".format(newpath,nodes[-1])
+            print (outfile)
+            np.save(outfile, img)
+
+    print ('total nolv found ', nolv)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -44,4 +103,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     method = args.method
     type = args.type
-    do_convert(method, type)
+    #do_convert(method, type)
+    do_delete(method, type)
