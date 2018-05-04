@@ -117,8 +117,10 @@ class Method1(object):
 
                             if self.type == 0 or self.type == '0':
                                 norm = self.original_method_acdc(flippedlabel, spacing)
-                            elif self.type == 1 or self.type == '1' or self.type == 3 or self.type == '3':
+                            elif self.type == 1 or self.type == '1':
                                 norm = self.new_rescaling_method_acdc(flippedlabel, spacing, 1)
+                            elif self.type == 3 or self.type == '3':
+                                norm = self.rescaling_only_method_acdc(flippedlabel, spacing)
 
                             outfilename = "{0}.npy".format(f)
                             outpath = "{0}/{1}/{2}/{3}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, patient)
