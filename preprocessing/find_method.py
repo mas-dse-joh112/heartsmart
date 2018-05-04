@@ -15,25 +15,25 @@ from method2 import *
 class FindMethod(object):
     def __init__(self, arg):
         self.arg = arg
-        print self.arg
+        print (self.arg)
         self.method = self.arg.method
         self.path = self.arg.path
         self.type = self.arg.type
 
     def get_method(self):
         if self.method not in preproc.methods:
-            print "not a valid method"
-            print ", ".join(preproc.methods)
+            print ("not a valid method")
+            print (", ".join(preproc.methods))
             sys.exit()
 
         if self.path not in preproc.paths:
-            print "not a valid path"
-            print ", ".join(preproc.paths)
+            print ("not a valid path")
+            print (", ".join(preproc.paths))
             sys.exit()
 
         if self.type not in preproc.types:
-            print "not a valid type"
-            print ", ".join(preproc.types)
+            print ("not a valid type")
+            print (", ".join(preproc.types))
             sys.exit()
 
         if self.method == '1':
