@@ -8,7 +8,7 @@ import glob
 import random
 import json
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 import numpy as np
 from keras.models import *
 from keras.layers import Input, concatenate, merge, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Cropping2D
@@ -29,22 +29,27 @@ set_random_seed(200)
 #import matplotlib.pyplot as plt
 #%matplotlib inline
 
-import tensorflow as tf
+#import tensorflow as tf
 
 print("\nSuccessfully imported packages!!!\n")
 
 
 class myUnet(object):
-    def __init__(self, patient, source_type, image_size = 256, model_type = "small"):
+    def __init__(self, image_size = 256, model_type = "small"):
         self.img_rows = image_size
         self.img_cols = image_size
-        self.patient = patient
-        self.source_type = source_type
+        self.test_images = None
+        self.test_labels = None
+        self.patient = None
+        self.data_source = None
+        self.file_source = None
+        self.image_size = None
+        self.source_type = None
+        self.test_source_path = None
         self.model_type = model_type
         self.image_4d_file = None
         self.image_source_file = None
         self.image_one_file = None
-        self.sourcedict = dict()
 
 
         if model_type == "small":
@@ -83,13 +88,21 @@ class myUnet(object):
         print("shape, max, min, mean after normalization  :", images2.shape, images2.max(), images2.min(), images2.mean())
         return images2
 
-    def load_data(self, train_data, test_data):
-        print('-'*30)
-        print("loading data")
-        self.train_images, self.train_labels = load_images_and_labels(train_data)
-        self.test_images, self.test_labels = load_images_and_labels(test_data)       
-        print("loading data done")
-        print('-'*30)
+    def dice_coeff(self, y_true, y_pred):
+        smooth = 1.
+        y_true_f = K.flatten(y_true)
+        y_pred_f = K.flatten(y_pred)
+        intersection = K.sum(y_true_f * y_pred_f)
+        score = (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+        return score
+
+    def dice_loss(self, y_true, y_pred):
+        loss = 1 - self.dice_coeff(y_true, y_pred)
+        return loss
+
+    def bce_dice_loss(self, y_true, y_pred):
+        loss = binary_crossentropy(y_true, y_pred) + self.dice_loss(y_true, y_pred)
+        return loss
 
     def build_unet_small(self):
         '''
@@ -156,7 +169,7 @@ class myUnet(object):
 
         self.model = Model(input = inputs, output = conv8)
 
-        self.model.compile(optimizer=RMSprop(lr=0.0001), loss=bce_dice_loss, metrics=[self.dice_coeff])
+        self.model.compile(optimizer=RMSprop(lr=0.0001), loss=self.bce_dice_loss, metrics=[self.dice_coeff])
         #model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = ['accuracy'])
 
 
@@ -250,15 +263,14 @@ class myUnet(object):
         self.model.load_weights(self.model_file)
         print('-'*30)   
 
-    def predict(self, test_image_array, test_label_array ="none"):
-        self.test_images = test_image_array
-        self.test_labels = test_label_array
+    def predict(self):
         print('-'*30)
         print('predict test data....')
         self.predictions = self.model.predict(self.test_images, batch_size=1, verbose=1)
         print('-'*30)
         print('-'*30)
         
+
         if self.test_labels != "none" :
             scores = self.model.evaluate (self.predictions, self.test_labels, batch_size=4)
             print ("Prediction Scores before rounding", scores)
@@ -447,11 +459,12 @@ class myUnet(object):
             self.display_ypred (num_images = num_images, random_images = False)
             return
         
-        ts , tl= self.test_images, self.test_labels
+        ts, tl = self.test_images, self.test_labels
         pred = self.predictions
         samples, x, y, z = pred.shape
         print ("samples, max, min ", samples, pred.max(), pred.min())
         pred2 = np.round(pred)
+
         if (evaluate == True) :
             scores = self.model.evaluate (pred, tl, batch_size=1)
             print ("Prediction Scores", scores)
@@ -504,6 +517,7 @@ class myUnet(object):
         else :
             display_list = [i for i in range (num_images)]
 
+        return display_list
         """
         for i in display_list:
             f, axs = plt.subplots(1,3,figsize=(15,15))
@@ -518,12 +532,12 @@ class myUnet(object):
     
     def dump_and_sort(self):
         count = 0
-        slicedict = {}
-        origpath = '/masvol/data/dsb/'+self.source_type+'/'+str(self.patient)+'/study/'
-        new_path = '/opt/output/dsb/volume/1/3/'+self.source_type+'_'+str(self.patient)+'.json'
+        origpath = '/masvol/data/{0}/{1}/{2}/study/'.format(self.file_source,self.source_type,str(self.patient))
+        new_path = '/opt/output/{0}/volume/1/3/{1}_{2}.json'.format(self.file_source,self.source_type,str(self.patient))
 
         with open(self.image_one_file, 'r') as inputs:
             jin = json.load(inputs)
+            slicedict = dict()
 
             for i in sorted(jin):
                 count += 1
@@ -571,17 +585,17 @@ class myUnet(object):
             minsl = None
 
             try:
-                maxdw = dicomwrapper(origpath, maxpath )
+                maxdw = dicomwrapper(origpath, maxpath)
                 maxsl = maxdw.slice_location()
             except:
-                print (origpath, maxpath)
+                print ('error max',origpath, maxpath)
                 maxsl = None
  
             try:
                 mindw = dicomwrapper(origpath, minpath)
                 minsl = mindw.slice_location()
             except:
-                print (origpath, minpath)
+                print ('error min',origpath, minpath)
                 minsl = None
 
             identified[i] = {'zmin':zmin,
@@ -596,6 +610,7 @@ class myUnet(object):
     def get_ones(self):
         print ('l', len(self.predictions))
         sourcefiles = []
+        sourcedict = dict()
 
         with open(self.image_source_file, 'r') as sourceinput:
             for i in sourceinput:
@@ -604,17 +619,17 @@ class myUnet(object):
         print ('SF',len(sourcefiles))
 
         for i in sourcefiles:
-            self.sourcedict[i] = {'ones':0} # init, may not have prediction
+            sourcedict[i] = {'ones':0} # init, may not have prediction
 
         pred2  = np.round(self.predictions)
         print (pred2.shape)
 
         for i in range(len(pred2)):
             zcount = np.count_nonzero(pred2[i])
-            self.sourcedict.update({sourcefiles[i]: {'ones':zcount}}) # save ones count for now
+            sourcedict.update({sourcefiles[i]: {'ones':zcount}}) # save ones count for now
 
         with open(self.image_one_file, 'w') as output:
-            output.write("{0}\n".format(json.dumps(self.sourcedict)))
+            output.write("{0}\n".format(json.dumps(sourcedict)))
 
     def plot_accuracy_and_loss(self):
         # list all data in history
@@ -659,55 +674,67 @@ class myUnet(object):
         """
 
     def do_predict(self):
-        for image_file in [mymodel.image_4d_file]:
-            ts = mymodel.load_images(image_file)
-            print (ts.shape)
-            tl = "none"
-            print('Run predictions...')
-            mymodel.predict(test_image_array = ts, test_label_array = tl)
-            print('-'*30)
-            mymodel.display_ytrue_ypred(num_images = 4, random_images = False, evaluate = False)
-            #mymodel.predictions (2, 256, 256, 1)
-            #save the predictions in the form of numpy array
-            #pred_file = "/opt/output/dsb/norm/1/3/unet_model_test/models/dsb_884_256_predictions.npy"
-            #np.save(pred_file, mymodel.predictions)
+        self.test_images = self.load_images(self.image_4d_file)
+        print (self.test_images.shape)
+        self.test_labels = "none"
+        print('Run predictions...')
+        self.predict()
+        print('-'*30)
+        #save the predictions in the form of numpy array
+        pred_file = "{0}/{1}/predict/{2}_{3}_{4}_predictions.npy".format(self.test_source_path,self.data_source,self.file_source,self.patient,self.image_size)
+        np.save(pred_file, self.predictions)
+        pred2 = np.round(self.predictions)
+        pred_round_file = "{0}/{1}/predict/{2}_{3}_{4}_pred_round.npy".format(self.test_source_path,self.data_source,self.file_source,self.patient,self.image_size)
+        np.save(pred_round_file, pred2)
+        ts_norm_file = "{0}/{1}/predict/{2}_{3}_{4}_ts_norm.npy".format(self.test_source_path,self.data_source,self.file_source,self.patient,self.image_size)
+        np.save(ts_norm_file, self.test_images)
 
 if __name__ == "__main__":
     arg = sys.argv[1:]
-    #patient = 884
     #image_size = 256
     #source_type = "test"
-    if len(arg) != 3:
-        print ('provide patient number, 256 (or 176), and test (train or validate)')
+    #fit and predict for all patients with source_type
+    if len(arg) != 2:
+        print ('provide image size 256 (or 176), and test (train or validate)')
         sys.exit()
 
-    patient, image_size, source_type = arg
-    patient = int(patient)
+    image_size, source_type = arg
+    file_source = "dsb"
     image_size = int(image_size)
-    dsb_source = "unet_model_{0}".format(source_type)
-    test_source_path = "/opt/output/dsb/norm/1/3"
-
-    #test_image_list = [#"/opt/output/dsb/norm/1/3/unet_model_test/data/dsb_884_256_train.npy", \
-                        #"/opt/output/dsb/norm/1/3/unet_model_test/data/dsb_885_256_train.npy", \
-                        #"/opt/output/dsb/norm/1/3/unet_model_test/data/dsb_886_256_train.npy", \
-                        #"/opt/output/dsb/norm/1/3/unet_model_test/data/dsb_887_256_train.npy", \
-    #                  ]
 
     model_file = "/masvol/heartsmart/unet_model/models_baseline/combined_{0}.hdf5".format(image_size)
 
     print('-'*30)
     print ("Creating U-net model...")
-    mymodel = myUnet(patient, source_type, image_size = image_size, model_type = "large")
+    mm = myUnet(image_size, "large")
     print('-'*30)
     print ("Loading the pre-trained weights...")
-    mymodel.load_pretrained_weights(model_file)
+    mm.load_pretrained_weights(model_file)
     print('-'*30)
     
-    mymodel.image_4d_file = "{0}/{1}/data/dsb_{2}_{3}_train.npy".format(test_source_path, dsb_source, patient, image_size)
-    mymodel.image_source_file = "{0}/{1}/data/dsb_{2}_image_path.txt".format(test_source_path, dsb_source, patient)
-    mymodel.image_one_file = "{0}/{1}/models/dsb_{2}_{3}_one_count.json".format(test_source_path, dsb_source, patient, image_size)
+    mm.source_type = source_type
+    mm.data_source = "unet_model_{0}".format(mm.source_type)
+    mm.file_source = file_source
+    mm.test_source_path = "/opt/output/{0}/norm/1/3".format(mm.file_source)
+    mm.image_size = image_size
 
-    mymodel.do_predict()
-    mymodel.get_ones()
-    #mymodel.sort_by_slice()
-    mymodel.dump_and_sort()
+    inputpath = "/masvol/data/{0}/{1}/*".format(mm.file_source, mm.source_type)
+    pcount = 0
+
+    for i in glob.glob(inputpath):
+        nodes = i.split('/')
+        mm.patient = nodes[-1]
+        print ('|'+mm.patient+'|')
+        mm.image_4d_file = "{0}/{1}/data/{2}_{3}_{4}_train.npy".format(mm.test_source_path, mm.data_source, mm.file_source, mm.patient, mm.image_size)
+        print ('4d',mm.image_4d_file)
+        mm.image_source_file = "{0}/{1}/data/{2}_{3}_image_path.txt".format(mm.test_source_path, mm.data_source, mm.file_source, mm.patient)
+        #print ('sf',mm.image_source_file)
+        mm.image_one_file = "{0}/{1}/models/{2}_{3}_{4}_one_count.json".format(mm.test_source_path, mm.data_source, mm.file_source, mm.patient, mm.image_size)
+        #print ('io',mm.image_one_file)
+        mm.do_predict()
+        mm.get_ones()
+        mm.dump_and_sort()
+
+        pcount += 1
+        #if pcount > 1:
+        #    break
