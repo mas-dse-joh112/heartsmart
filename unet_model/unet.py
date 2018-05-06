@@ -8,7 +8,7 @@ import glob
 import random
 import json
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
 import numpy as np
 from keras.models import *
 from keras.layers import Input, concatenate, merge, Conv2D, MaxPooling2D, UpSampling2D, Dropout, Cropping2D
@@ -533,7 +533,7 @@ class myUnet(object):
     def dump_and_sort(self):
         count = 0
         origpath = '/masvol/data/{0}/{1}/{2}/study/'.format(self.file_source,self.source_type,str(self.patient))
-        new_path = '/opt/output/{0}/volume/1/3/{1}_{2}.json'.format(self.file_source,self.source_type,str(self.patient))
+        new_path = '/opt/output/{0}/volume/1/3/{1}_{2}_{3}.json'.format(self.file_source,self.source_type,str(self.patient),self.image_size)
 
         with open(self.image_one_file, 'r') as inputs:
             jin = json.load(inputs)
