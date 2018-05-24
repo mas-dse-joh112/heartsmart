@@ -11,10 +11,15 @@ import json
 import os 
 import numpy as np
 from sklearn.metrics import log_loss
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
+from sklearn.metrics import auc, roc_curve, accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
 from collections import OrderedDict
 
+perf_keys = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accuracy", "dice_coef", "precision","recall", \
+             "f1_score", "true_positive", "false_positive","true_negative","false_negative", "zero_contour_labels", \
+             "zero_contour_pred", "missed_pred_lt_05", "missed_pred_gt_25", "missed_pred_gt_50", "missed_pred_eq_100"]
 
+def get_perf_keys():
+    return perf_keys
 
 def load_images_and_labels(data, normalize= True):
     """Function to load images and labels from .npy file into a 4d numpy array
@@ -46,6 +51,48 @@ def load_images_and_labels(data, normalize= True):
         x_min = images.min(axis=(1, 2), keepdims=True)
         x_max = images.max(axis=(1, 2), keepdims=True)
         images2 = (images - x_min)/(x_max-x_min)
+        print("shape, max, min, mean of original image set:", images.shape, images.max(), images.min(), images.mean())
+        print("shape, max, min, mean after normalization  :", images2.shape, images2.max(), images2.min(), images2.mean())
+        print("shape, max, min, mean of labels :", labels.shape, labels.max(), labels.min(), labels.mean())
+    
+    else :
+        images2 = im
+        labels = lb
+        print("shape, max, min, mean of images :", images2.shape, images2.max(), images2.min(), images2.mean())
+        print("shape, max, min, mean of labels :", labels.shape, labels.max(), labels.min(), labels.mean())
+    
+    return images2, labels
+
+def load_images_and_labels2(data, normalize= True):
+    """Function to load images and labels from .npy file into a 4d numpy array
+    before we feed them into U-net model. 
+
+    Note:
+    Image files will be normalized based on pixel values by default.       
+
+    Args:
+        data (:dict): dictionary with full path to .npy files for images and labels.
+        normalize (:boolean, optional): Applies pixel normalization if True. Default value is True.
+    
+    Returns:
+       numpy arrays  of images and labels.
+    """
+    print('-'*30)
+    print('load np arrays of images and labels...')
+    print('-'*30)
+    imgfile = data["images"]
+    labelfile = data["labels"]
+    print ("Loading files : ", imgfile, labelfile)
+    
+    im = np.load(imgfile)
+    lb = np.load(labelfile)
+    if (normalize == True):
+        images = im.astype('float32')
+        labels = lb.astype('float32')
+        ##Normalize the pixel values, (between 0..1)
+        x_mean = images.mean(axis=(1, 2), keepdims=True)
+        x_std = images.std(axis=(1, 2), keepdims=True)
+        images2 = (images - x_mean)/(x_std)
         print("shape, max, min, mean of original image set:", images.shape, images.max(), images.min(), images.mean())
         print("shape, max, min, mean after normalization  :", images2.shape, images2.max(), images2.min(), images2.mean())
         print("shape, max, min, mean of labels :", labels.shape, labels.max(), labels.min(), labels.mean())
@@ -119,7 +166,40 @@ def load_images(imgfile, normalize= True):
    
     return images2
 
+def load_images2(imgfile, normalize= True):
+    """Function to load images  from .npy file into a 4d numpy array
+    before we feed them into U-net model. 
 
+    Note:
+    Image files will be normalized based on pixel values by default.       
+
+    Args:
+        imgfile (:string): .npy file name with full path for images .
+        normalize (:boolean, optional): Applies pixel normalization if True. Default value is True.
+    
+    Returns:
+       numpy array  of images.
+       
+    """
+    print('-'*30)
+    print('load np arrays of images ...')
+    print('-'*30)
+    print ("Loading files : ", imgfile)
+    
+    im = np.load(imgfile)
+    if (normalize == True):
+        images = im.astype('float32')
+        ##Normalize the pixel values, (between 0..1)
+        x_mean = images.mean(axis=(1, 2), keepdims=True)
+        x_std = images.std(axis=(1, 2), keepdims=True)
+        images2 = (images - x_mean)/(x_std)
+        print("shape, max, min, mean of original image set:", images.shape, images.max(), images.min(), images.mean())
+        print("shape, max, min, mean after normalization:", images2.shape, images2.max(), images2.min(), images2.mean())
+    else :
+        images2 = im
+        print("shape, max, min, mean of images:", images2.shape, images2.max(), images2.min(), images2.mean())
+   
+    return images2
 
 def read_performance_statistics(file_p):
     """Function to read performance statistics captured during model training.       
@@ -207,6 +287,27 @@ def get_performance_statistics(y_true_f, y_pred_f):
     
     #cm.print_stats()
     return perf
+
+def compute_roc_auc(y_true_f, y_pred_f):
+    """Function to plot learning history captured during model training.       
+
+    Args:
+        file_p(:string): learning history file (.json) with full path.
+
+    Returns:
+       perf(:dict): dictionary of perf statistics
+       
+    """   
+    
+    y_true_a = np.load(y_true_f)
+    y_pred_a = np.load(y_pred_f)
+
+    y_true = y_true_a.flatten()
+    y_pred = y_pred_a.flatten()
+    
+    fpr, tpr, threshold = roc_curve(y_true, y_pred)
+    roc_auc = auc(fpr, tpr)
+    return fpr, tpr, threshold, roc_auc
     
 
 def compute_performance_statistics (y_true_f, y_pred_f):
@@ -242,6 +343,9 @@ def compute_performance_statistics (y_true_f, y_pred_f):
     y_pred[y_pred>=1.] = 1. -epsilon
     
     #print (y_true.shape, y_pred.shape)
+    smooth = 1.
+    intersection = np.sum(y_true * y_pred)
+    dice_coef = (2. * intersection + smooth) / (np.sum(y_true) + np.sum(y_pred) + smooth)
 
     score = log_loss (y_true, y_pred)
     score2 = log_loss (y_true, y_pred, sample_weight = sample_weights)
@@ -264,16 +368,17 @@ def compute_performance_statistics (y_true_f, y_pred_f):
     
     #perf = {}
     
-    keys = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accuracy", "precision","recall", "f1_score", "true_positive", \
-           "false_positive","true_negative","false_negative", "zero_contour_labels", "zero_contour_pred", \
-           "missed_pred_lt_05", "missed_pred_gt_25", "missed_pred_gt_50", "missed_pred_eq_100"]
-    perf = OrderedDict.fromkeys(keys)
+#     keys = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accuracy", "dice_coef", "precision","recall", "f1_score", "true_positive", \
+#            "false_positive","true_negative","false_negative", "zero_contour_labels", "zero_contour_pred", \
+#            "missed_pred_lt_05", "missed_pred_gt_25", "missed_pred_gt_50", "missed_pred_eq_100"]
+    perf = OrderedDict.fromkeys(perf_keys)
     
     perf["logloss"] = score
     perf["weighted_logloss"] = score2
     perf["accuracy"] = acc
     perf["weighted_accuracy"] = acc2
 
+    perf["dice_coef"] = dice_coef
     perf["precision"] = prec
     perf["recall"] = rec
     perf["f1_score"] = f1
