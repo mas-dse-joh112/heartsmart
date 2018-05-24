@@ -6,6 +6,15 @@ import os
 import glob
 import numpy as np
 
+def fix_acdc_no_delete(im):
+    max_val=im.max()
+
+    if max_val != 0:
+        im[im<max_val]=0
+        im[im==max_val]=1
+
+    return im, 0
+
 def fix_acdc(im):
     max_val=im.max()
 
@@ -22,8 +31,8 @@ def fix_acdc(im):
     return im, 1
 
 def do_delete(method, type):
-    imgpath = "/opt/output/acdc/norm/{0}/{1}/update/*".format(method, type)
-    lblpath = "/opt/output/acdc/norm/{0}/{1}L".format(method, type)
+    imgpath = "/masvol/output/acdc/norm/{0}/{1}/*".format(method, type)
+    lblpath = "/masvol/output/acdc/norm/{0}/{1}L".format(method, type)
 
     lblcount = 0
     lblfound = 0
@@ -59,8 +68,8 @@ def do_delete(method, type):
 
 def do_convert(method, type):
     #imgpath = "/opt/output/acdc/norm/{0}/{1}/*".format(method, type)
-    imgpath = "/opt/output/acdc/norm/{0}/{1}/update/*".format(method, type)
-    outpath = "/opt/output/acdc/norm/{0}/{1}L".format(method, type)
+    imgpath = "/masvol/output/acdc/norm/{0}/{1}/*".format(method, type)
+    outpath = "/masvol/output/acdc/norm/{0}/{1}L".format(method, type)
     nolv = 0
     print ('imgpath', imgpath)
 
@@ -72,7 +81,8 @@ def do_convert(method, type):
                 continue
 
             print (j)
-            img, delete = fix_acdc(np.load(j))
+            img, delete = fix_acdc_no_delete(np.load(j)) # keep everything
+            #img, delete = fix_acdc(np.load(j)) # delete the ones with all zeroes and no LV
             image = j.replace('_label','')
 
             if delete:
