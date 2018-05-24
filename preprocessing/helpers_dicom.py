@@ -101,6 +101,9 @@ class DicomWrapper:
     @property
     def in_plane_encoding_direction(self):
         return self.get_value("InPlanePhaseEncodingDirection")
+    
+    def slice_thickness(self):
+        return self.get_value("SliceThickness")
 
     def get_location(self):
         image_center2d = self.spacing * (numpy.array([self.columns, self.rows]) - numpy.ones(2)) / 2.
@@ -111,8 +114,8 @@ class DicomWrapper:
         return center
     
     def slice_location(self):
-        sl= np.dot(self.image_position_patient,
-                   np.cross(self.image_orientation_patient[:3],self.image_orinetation_patient[3:]))
+        o = self.image_orientation_patient
+        sl= numpy.dot(self.image_position_patient, numpy.cross(o[:3],o[3:]))
         return sl
 
     @property
