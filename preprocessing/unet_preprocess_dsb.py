@@ -27,11 +27,11 @@ print("\nSuccessfully imported packages!!!\n")
 
 TRAIN_TEST_SPLIT_RATIO = 0.1  # train/test split ratio for Sunnybrook and ACDC data
 
-BASE_DIR = "/opt/output/"
+BASE_DIR = "/masvol/output/"
 SOURCE = "dsb"
 PATH = "train"
-TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/{0}/".format(PATH)
-UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model_{0}/data/".format(PATH)
+TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/2/1/{0}/".format(PATH)
+UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/2/1/unet_model_{0}/data/".format(PATH)
 
 ##################################
 #
@@ -89,10 +89,11 @@ def get_dsb_image_list(data_path):
     image_list = [os.path.join(data_path,f) 
             for f in glob.glob(data_path+"/*") if f.endswith('dcm.npy')]
     
+    
     print("Number of examples: {:d}".format(len(image_list)))
     
     if len(image_list) == 0:
-        print ("STOP")
+        print ("Stop")
         sys.exit()
 
     print (image_list[0], image_list[-1])
@@ -179,15 +180,16 @@ if __name__ == "__main__":
         sys.exit()
 
     patient, PATH = arg[0], arg[1]
-
-    TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/{0}/".format(PATH)
-    UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model_{0}/data/".format(PATH)
+    print (patient, PATH)
+    TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/2/1/{0}/".format(PATH)
+    UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/2/1/unet_model_{0}/data/".format(PATH)
 
     print (TRAIN_IMG_DIR,UNET_TRAIN_DIR)
 
     img_path_list_file = UNET_TRAIN_DIR + SOURCE + "_{0}_image_path.txt".format(patient)
 
     filepath = "{0}{1}".format(TRAIN_IMG_DIR,patient)
+    print (filepath)
 
     img_path_list, extracted_info = get_dsb_image_list(filepath)
     img_count = len(img_path_list)
