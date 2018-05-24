@@ -36,15 +36,17 @@ set_random_seed(12345)
 #%matplotlib inline
 
 import tensorflow as tf
-
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
-#os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6"
-#os.environ["CUDA_VISIBLE_DEVICES"] = "5,6, 7"
+#GPU_CLUSTER = "0,1,2,3,4,5,6,7"
+GPU_CLUSTER = "4,5"
+os.environ["CUDA_VISIBLE_DEVICES"] = GPU_CLUSTER
+GPUs = len(GPU_CLUSTER.split(','))
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+# #os.environ["CUDA_VISIBLE_DEVICES"] = "4,5,6,7"
+# #os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3"
+# #os.environ["CUDA_VISIBLE_DEVICES"] = "3,4,5,6"
+# #os.environ["CUDA_VISIBLE_DEVICES"] = "5,6, 7"
 
 from modelmgpu import ModelMGPU
-GPUs = 4
 
 import time
 
@@ -83,6 +85,8 @@ class myUnet(object):
         self.learningrate_str = str(lr)
         if loss_fn == 'dice_loss':
             self.loss_fn = dice_loss
+        elif loss_fn == 'log_dice_loss':
+            self.loss_fn = log_dice_loss
         elif loss_fn == 'bce_dice_loss':
             self.loss_fn = bce_dice_loss
         elif loss_fn == 'binary_crossentropy':
@@ -115,6 +119,157 @@ class myUnet(object):
         print('-'*30)
         
 
+    def get_crop_shape(self, src, dest):
+        # width, the 3rd dimension
+        cw = (src.get_shape()[2] - dest.get_shape()[2]).value
+        assert (cw >= 0)
+        if cw % 2 != 0:
+            cw1, cw2 = int(cw/2), int(cw/2) + 1
+        else:
+            cw1, cw2 = int(cw/2), int(cw/2)
+        # height, the 2nd dimension
+        ch = (src.get_shape()[1] - dest.get_shape()[1]).value
+        assert (ch >= 0)
+        if ch % 2 != 0:
+            ch1, ch2 = int(ch/2), int(ch/2) + 1
+        else:
+            ch1, ch2 = int(ch/2), int(ch/2)
+
+        return (ch1, ch2), (cw1, cw2)
+        
+    def build_unet2(self):
+        
+        '''
+        Input shape
+        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first' 
+        or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
+        
+        Output shape
+        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or 
+        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'. 
+        rows and cols values might have changed due to padding.
+        '''
+        print('-'*30)
+        print ("Building U-net model")
+        print('-'*30)
+        
+        inputs = Input((self.img_rows, self.img_cols,1))
+        
+        conv0 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
+        print ("conv0 shape:",conv0.shape)
+     
+        conv0 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv0)
+        print ("conv0 shape:",conv0.shape)
+        pool0 = MaxPooling2D(pool_size=(2, 2))(conv0)
+        print ("pool0 shape:",pool0.shape)
+
+        conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
+        print ("conv1 shape:",conv1.shape)
+     
+        conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
+        print ("conv1 shape:",conv1.shape)
+        pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+        print ("pool1 shape:",pool1.shape)
+
+        conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
+        print ("conv2 shape:",conv2.shape)
+        conv2 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv2)
+        print ("conv2 shape:",conv2.shape)
+        pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+        print ("pool2 shape:",pool2.shape)
+
+        conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
+        print ("conv3 shape:",conv3.shape)
+        conv3 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv3)
+        print ("conv3 shape:",conv3.shape)
+        pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+        print ("pool3 shape:",pool3.shape)
+
+        conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
+        conv4 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv4)
+        #drop4 = Dropout(0.5)(conv4)
+        pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+
+        conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
+        conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
+        print ("Adding .5 dropout layer")
+        drop5 = Dropout(0.5)(conv5)
+
+        up6 = Conv2D(512, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop5))
+        ch, cw = self.get_crop_shape(conv4, up6)
+        crop_conv4 = Cropping2D(cropping=(ch,cw))(conv4)
+        merge6 = concatenate([crop_conv4,up6], axis = 3)
+        conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
+        conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
+        if self.dropout == True:
+            print ("Adding .5 dropout layer")
+            conv6 = Dropout(0.5)(conv6)
+
+        up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
+        ch, cw = self.get_crop_shape(conv3, up7)
+        crop_conv3 = Cropping2D(cropping=(ch,cw))(conv3)
+        merge7 = concatenate([crop_conv3,up7], axis = 3)
+        conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
+        conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
+        if self.dropout == True:
+            print ("Adding .5 dropout layer")
+            conv7 = Dropout(0.5)(conv7)
+
+        up8 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
+        ch, cw = self.get_crop_shape(conv2, up8)
+        crop_conv2 = Cropping2D(cropping=(ch,cw))(conv2)
+        merge8 = concatenate([crop_conv2,up8], axis = 3)
+        conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
+        conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
+        if self.dropout == True:
+            print ("Adding .5 dropout layer")
+            conv8 = Dropout(0.5)(conv8)
+        
+        up9 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
+        ch, cw = self.get_crop_shape(conv1, up9)
+        crop_conv1 = Cropping2D(cropping=(ch,cw))(conv1)
+        merge9 = concatenate([crop_conv1,up9], axis = 3)
+        conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
+        conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+        if self.dropout == True:
+            print ("Adding .5 dropout layer")
+            conv9 = Dropout(0.5)(conv9)
+            
+        up10 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv9))
+        ch, cw = self.get_crop_shape(conv0, up10)
+        crop_conv0 = Cropping2D(cropping=(ch,cw))(conv0)
+        merge10 = concatenate([crop_conv0,up10], axis = 3)
+        conv10 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge10)
+        conv10 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv10)       
+        
+        #conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+        conv11 = Conv2D(1, 1, activation = 'sigmoid')(conv10)
+
+        print ("compiling the model")
+        self.model = Model(input = inputs, output = conv11)
+        self.parallel_model = ModelMGPU(self.model, GPUs)
+
+        #self.model.compile(optimizer=RMSprop(lr=0.0001), loss=penalized_bce_loss(weight=0.08), metrics=['binary_accuracy'])
+        #self.model.compile(optimizer=RMSprop(lr=0.0001), loss=dice_loss, metrics=[dice_coeff])
+
+        #metrics=['accuracy'] calculates accuracy automatically from cost function. So using binary_crossentropy shows binary 
+        #accuracy, not categorical accuracy.Using categorical_crossentropy automatically switches to categorical accuracy
+        #One can get both categorical and binary accuracy by using metrics=['binary_accuracy', 'categorical_accuracy']
+        
+        #self.parallel_model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss, metrics = [dice_coeff])
+        #self.model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss, metrics = [dice_coeff])
+        
+        print ("compiling the model")
+        #self.model.compile(optimizer = self.optimizer, loss = self.loss_fn, metrics = self.metrics)
+        try:
+            self.parallel_model.compile(optimizer = self.optimizer, loss = self.loss_fn, metrics = self.metrics)
+
+            #self.parallel_model.compile(optimizer = Adam(lr = 1e-4), loss = bce_dice_loss, metrics = [dice_coeff])
+        except ValueError:
+            print ("Error invalid parameters to model compilation")
+
+    
+    
     def build_unet(self):
         
         '''
@@ -162,13 +317,17 @@ class myUnet(object):
 
         conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
         conv5 = Conv2D(1024, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
-        drop5 = Dropout(0.5)(conv5)
+        drop5 = conv5
+        if self.dropout == True:
+            print ("Adding dropout layer")
+            drop5 = Dropout(0.5)(drop5)
 
         up6 = Conv2D(512, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop5))
         merge6 = concatenate([drop4,up6], axis = 3)
         conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
         conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
         if self.dropout == True:
+            print ("Adding dropout layer")
             conv6 = Dropout(0.5)(conv6)
 
         up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
@@ -267,11 +426,16 @@ class myUnet(object):
             self.original_train_images = self.train_images
             self.original_train_labels = self.train_labels
             # we create two instances with the same arguments
+#             data_gen_args = dict(
+#                                  rotation_range=90.,
+#                                  width_shift_range=0.05,
+#                                  height_shift_range=0.05,
+#                                  zoom_range=0.1)
             data_gen_args = dict(
-                                 rotation_range=90.,
-                                 width_shift_range=0.05,
-                                 height_shift_range=0.05,
-                                 zoom_range=0.1)
+                     rotation_range=90.,
+                     width_shift_range=0.025,
+                     height_shift_range=0.025,
+                     zoom_range=0.05)
 
             image_datagen = ImageDataGenerator(**data_gen_args)
             mask_datagen = ImageDataGenerator(**data_gen_args)
@@ -305,6 +469,9 @@ class myUnet(object):
 
         print('-'*30)
         print('predict test data....')
+        #first load the pre-trained weights that were saved from best run
+        self.load_pretrained_weights(self.model_file)
+        
         self.predictions = self.parallel_model.predict(self.test_images, batch_size=1, verbose=1)
         #self.predictions = self.model.predict(self.test_images, batch_size=1, verbose=1)
         self.scores = self.parallel_model.evaluate (self.predictions, self.test_labels, batch_size=4)
