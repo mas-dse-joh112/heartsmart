@@ -421,6 +421,8 @@ class Method1(object):
     #Function to crop the image into a square
     def get_square_crop(self, img, base_size=256, crop_size=256):
         res = img
+#         print (res)
+#         print (res.shape)
         height, width = res.shape
 
         if height < base_size:
@@ -442,6 +444,8 @@ class Method1(object):
         crop_y_start = (height - crop_size) // 2
         crop_x_start = (width - crop_size) // 2
         res = res[crop_y_start:(crop_y_start + crop_size), crop_x_start:(crop_x_start + crop_size)]
+#         print (res)
+#         print (res.shape)
         return res
 
     #Contrast Normalizaiton
