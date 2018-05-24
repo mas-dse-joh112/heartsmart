@@ -2,7 +2,8 @@
 import os
 import glob
 
-imgpath = "/opt/output/sunnybrook/norm/1/3/images/*"
+#imgpath = "/opt/output/sunnybrook/norm/1/3/images/*"
+imgpath = "/opt/output/sunnybrook/norm/2/1/images/*"
 
 for i in glob.glob(imgpath):
     print (i)
