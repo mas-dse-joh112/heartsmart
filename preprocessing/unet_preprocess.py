@@ -6,9 +6,17 @@ import re, sys
 import fnmatch, shutil, subprocess
 import glob
 import os 
-
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+from method1 import Method1
+import config
+
+# dummy parms
+config.method = 0
+config.source = ''
+config.path = ''
+config.type = 0
+m1 = Method1(config)
 
 
 #Fix the random seeds for numpy (this is for Keras) and for tensorflow backend to reduce the run-to-run variance
@@ -22,7 +30,7 @@ print("\nSuccessfully imported packages!!!\n")
 #Settings
 IMAGE_SIZE_BIG = 256
 IMAGE_SIZE_SMALL = 176
-BASE_DIR = "/opt/output/"
+BASE_DIR = "/masvol/output/"
 SOURCE = None
 RE_PATTERN = None
 TRAIN_IMG_DIR = None
@@ -82,14 +90,24 @@ def load_contour(contour, img_path, crop_size):
         filename = preproc.filenames[SOURCE] % (contour.case, contour.record, contour.img_no)
 
     full_path = os.path.join(img_path, contour.case, filename)
+    print (full_path)
     img = np.load(full_path)
+    print (img.shape)
+#     print ('************Before load contour*************')
+#     print (img) 
+#     print (img[np.where(img >1)])
     label = np.load(contour.ctr_path)
-    height, width = img.shape
-    height_l, width_l = label.shape
+    #if len(img) < 256:
+    #    img_max = img.max()
+    #    img = img/img_max
+    img = m1.get_square_crop(img,crop_size,crop_size)
+    label = m1.get_square_crop(label,crop_size,crop_size)
+    #height, width = img.shape
+    #height_l, width_l = label.shape
     
-    if height != crop_size or width != crop_size:
-        img = crop_center(img,crop_size,crop_size)
-        label = crop_center(label,crop_size,crop_size)
+    #if height != crop_size or width != crop_size:
+    #    img = crop_center(img,crop_size,crop_size)
+    #    label = crop_center(label,crop_size,crop_size)
         
     return img, label, full_path
    
@@ -131,7 +149,7 @@ def get_contours_and_images(contours, img_path, crop_size):
             break
             
         imgs, labels = [], []
-        imgs2, labels2 = [], []
+        #imgs2, labels2 = [], []
         
         for idx,ctr in enumerate(batch):
             filename = None
@@ -141,14 +159,17 @@ def get_contours_and_images(contours, img_path, crop_size):
             elif SOURCE == "acdc":
                 filename = preproc.filenames[SOURCE] % (ctr.case,ctr.record,ctr.img_no)
 
-            full_path = os.path.join(img_path, ctr.case, filename)
-            img = np.load(full_path)
-            x,y = img.shape
+            #full_path = os.path.join(img_path, ctr.case, filename)
+            #img = np.load(full_path)
+            #x,y = img.shape
                     
-            if x < crop_size or y < crop_size:
-                continue
-                
+            #if x < crop_size or y < crop_size:
+            #    continue
+
             img, label, fullpath = load_contour(ctr, img_path, crop_size)
+#             print ('************After load contour*************')
+#             print (img)
+#             print (img[np.where(img >1)])
             imgs.append(img)
             labels.append(label)
 
@@ -194,6 +215,15 @@ def create_training_data(imgs, lbls, save_file_path, file_prefix, image_size):
     print("Converting data to np array")
     
     imgdatas = np.ndarray((len(imgs),rows,cols,1), dtype=np.int)
+#     print ('*********Create_training_Data******')
+#     print (imgdatas)
+#     print (imgdatas[1][np.where(imgdatas[1] >1)])
+#     print (imgdatas[1][np.where(imgdatas[1] >0)])
+#     imgdatas_2 = np.ndarray((len(imgs),rows,cols,1))
+#     print ('*********Create_training_Data2******')
+#     print (imgdatas_2)
+#     print (imgdatas_2[1][np.where(imgdatas_2[1] >1)])
+#     print (imgdatas_2[1][np.where(imgdatas_2[1] >0)])
     imglabels = np.ndarray((len(imgs),rows,cols,1), dtype=np.uint8)
     
     for idx in range(len(imgs)):
@@ -217,14 +247,16 @@ def create_training_data(imgs, lbls, save_file_path, file_prefix, image_size):
 
 
 if __name__ == "__main__":
-    #SOURCE = 'acdc'
     SOURCE = 'sunnybrook'
+    METHOD = '1'
+    TYPE = '3'
+    #SOURCE = 'sunnybrook'
     RE_PATTERN = preproc.re_patterns[SOURCE]
-    TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/images/"
-    TRAIN_LBL_DIR = BASE_DIR + SOURCE + "/norm/1/3/labels/"
-    TEST_IMG_DIR = BASE_DIR + SOURCE + "/norm/1/3/images/"
-    PRED_RESULT_DIR = BASE_DIR + SOURCE + "/norm/1/3/images/"
-    UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model/data/"
+    TRAIN_IMG_DIR = BASE_DIR + SOURCE + "/norm/{0}/{1}/images/".format(METHOD,TYPE)
+    TRAIN_LBL_DIR = BASE_DIR + SOURCE + "/norm/{0}/{1}/labels/".format(METHOD,TYPE)
+    TEST_IMG_DIR = BASE_DIR + SOURCE + "/norm/{0}/{1}/images/".format(METHOD,TYPE)
+    PRED_RESULT_DIR = BASE_DIR + SOURCE + "/norm/{0}/{1}/images/".format(METHOD,TYPE)
+    UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/{0}/{1}/unet_model/data/".format(METHOD,TYPE)
 
     ##Get images and labels with crop from center to get 256x256 images
     train_imgs, train_labels, test_imgs, test_labels = extract_training_data(IMAGE_SIZE_BIG)
@@ -234,14 +266,14 @@ if __name__ == "__main__":
 
     ### Create 256x256 size train/test data in 4d tensor shape and save them
     save_location = UNET_TRAIN_DIR
-    tr_file_prefix = SOURCE + "_256_train_orig"
-    tst_file_prefix = SOURCE + "_256_test_orig"
+    tr_file_prefix = SOURCE + "_1_3_256_train"
+    tst_file_prefix = SOURCE + "_1_3_256_test"
     create_training_data(train_imgs, train_labels, save_location, tr_file_prefix, IMAGE_SIZE_BIG)
     create_training_data(test_imgs, test_labels, save_location, tst_file_prefix, IMAGE_SIZE_BIG)
 
     ### Create 180x180 size train/test data in 4d tensor shape and save them
-    tr_file_prefix = SOURCE + "_176_train_orig"
-    tst_file_prefix = SOURCE + "_176_test_orig"
+    tr_file_prefix = SOURCE + "_1_3_176_train"
+    tst_file_prefix = SOURCE + "_1_3_176_test"
 
     create_training_data(train_imgs2, train_labels2, save_location, tr_file_prefix, IMAGE_SIZE_SMALL)
     create_training_data(test_imgs2, test_labels2, save_location, tst_file_prefix, IMAGE_SIZE_SMALL)
