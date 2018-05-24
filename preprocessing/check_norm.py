@@ -7,7 +7,9 @@ def checking_npy(filename):
     print (t.size)
     print (len(t))
     print (np.sum(t))
-    print (t)
+    #print (t)
+    print (t.shape)
+    print (t.max())
 
 
 if __name__ == "__main__":
