@@ -141,7 +141,7 @@ class Method2(object):
                         elif self.type == 1 or self.type == '1':
                             norm = self.new_rescaling_method(dw)
                         elif self.type == 2 or self.type == '2':
-                            norm = self.no_orientation_method
+                            norm = self.no_orientation_method(dw)
                         elif self.type == 3 or self.type == '3':
                                 norm = self.rescaling_only_method(dw)
 
@@ -229,20 +229,25 @@ class Method2(object):
         for i in self.inputfiles:
             if i.endswith('pdf'):
                 continue
+            print (i)
 
             for root, _, files in os.walk(i):
                 rootnode = root.split("/")[-1] # sax file
+                print (rootnode, files)
 
                 newroot = root.replace(self.path, '*')
                 newfile = None
 
                 for f in files:
                     if f.endswith('.dcm.img.npy'):
+                        print ('True')
 
                         newfile = f.replace('.img.npy', '')
                         lblfile = f.replace('.img.npy', '.label.npy')
+                        print ("{0}/{1}".format(newroot,newfile))
 
                         for nfile in glob.glob("{0}/{1}".format(newroot,newfile)):
+                            print (nfile)
                             nodes = nfile.split('/')
                             nroot = "/".join(nodes[:-1])
                             norm = None
@@ -261,7 +266,7 @@ class Method2(object):
 
                             outfilename = lblfile
                             outpath =  "{0}/{1}/{2}/{3}/{4}".format(preproc.normoutputs[self.source]['dir'], self.method, self.type, self.path, rootnode)
-
+                            print (outpath)
                             if not os.path.isdir(outpath):
                                 os.mkdir(outpath)
 
@@ -311,7 +316,7 @@ class Method2(object):
                     elif self.type == 1 or self.type == '1':
                         norm = self.new_rescaling_method(dw)
                     elif self.type == 2 or self.type == '2':
-                        norm = self.no_orientation_method
+                        norm = self.no_orientation_method(dw)
                     elif self.type == 3 or self.type == '3':
                         norm = self.rescaling_only_method(dw)
                     """
@@ -338,6 +343,7 @@ class Method2(object):
 
     #No Orientation npy
     def no_orientation_npy(self, img, spacing, label):
+        print (img)
         rescaled = self.reScaleNew(img, spacing)
         cropped = self.crop_size(rescaled)
 
@@ -348,7 +354,7 @@ class Method2(object):
 
     def no_orientation_method(self, dw):
         img = dw.raw_file
-        rescaled = self.reScaleNew(img, img.PixelSpacing)
+        rescaled = self.reScaleNew(img.pixel_array, img.PixelSpacing)
         contrast = self.contrast(rescaled)
         return self.crop_size(contrast)
 
