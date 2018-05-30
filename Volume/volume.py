@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import sklearn.metrics
 import random
-
+from helpers_dicom import DicomWrapper as dicomwrapper
 
 
 
@@ -17,12 +17,17 @@ def computeVolume(path,imgsize, vtype = 'orig', STway = 'sub',ty = None):
         for i in files:
 #             print (root+i)
             if os.path.isfile(root+i):
-                if ('_'+str(imgsize)+'.') in i:
+#                 print ('******True')
+                if ('_'+str(imgsize)+'.') or ('_'+str(imgsize)+'_') in i:
                     split = i.split('_')#.strip('.json')
 #                     print (split)
                     source = split[0]
                     if ('roi') in i:
                         patient = split[-2]
+#                         print ('*****',split[-2])
+                    elif ('CR') in i:
+                        patient = split[1]
+#                         print (patient)
                     else:
                         patient = split[1].strip('.json')
 #                     print (source, patient)
@@ -35,6 +40,7 @@ def computeVolume(path,imgsize, vtype = 'orig', STway = 'sub',ty = None):
                     elif vtype == 'ST':
                         ESV, EDV, issues = getVolume(patient, patientdict, vtype, STway)
                     elif vtype == 'zeros':
+#                         print ('*** ****Patient: ', patient)
                         ESV, EDV, issues = getVolume(patient, patientdict, vtype, ty)
 
         
@@ -54,6 +60,13 @@ def getVolume(patient,patientdict, v_type = 'orig', ty = None):
     minframes = []
     maxframes = []
     sl = 0
+#     print (patient)
+    if int(patient) < 500 or int(patient) == 500:
+        orig_path = '/masvol/data/dsb/train/'+patient+'/study/'
+    elif int(patient) > 500 and int(patient) <= 700:
+        orig_path = '/masvol/data/dsb/validate/'+patient+'/study/'
+    else:
+        orig_path = '/masvol/data/dsb/test/'+patient+'/study/'
 #     print (patientdict)
     for i in patientdict:
         numSlices = len(patientdict.keys())
@@ -71,7 +84,7 @@ def getVolume(patient,patientdict, v_type = 'orig', ty = None):
             es[patientdict[i]['minSL']] = {'zmin': patientdict[i]['zmin'],
                                           'minST':patientdict[i]['minST'],
                                           'zcounts': patientdict[i]['zcounts']}
-            minframes.append([i, patientdict[i]['zminframe']])
+            minframes.append([i, patientdict[i]['zminframe'], patientdict[i]['minSL']])
     
         if patientdict[i]['maxSL'] is None:
 #             print ('MaxSL: ', patientdict[i])
@@ -83,13 +96,24 @@ def getVolume(patient,patientdict, v_type = 'orig', ty = None):
             ed[patientdict[i]['maxSL']] = {'zmax': patientdict[i]['zmax'],
                                           'maxST':patientdict[i]['maxST'],
                                           'zcounts': patientdict[i]['zcounts']}
-            maxframes.append([i,patientdict[i]['zmaxframe']])
+            maxframes.append([i,patientdict[i]['zmaxframe'], patientdict[i]['maxSL']])
+#     print (len(maxframes), len(minframes))
+    if len(maxframes) > 0:
+        age_img = maxframes[0][0]+'/'+maxframes[0][1].strip('.npy')
+        age = getAge(orig_path,age_img)
+#     print (age_img)
+    elif len(minframes) > 0:
+        age_img = minframes[0][0]+'/'+minframes[0][1].strip('.npy')
+        age = getAge(orig_path,age_img)
+    else:
+        age = None
     issues[patient] = {'numSlices': numSlices,
                         'noMinValue': noMin,
                        'noMaxValue': noMax,
                        'noSL': noSL,
                       'minframes': minframes,
-                      'maxframes': maxframes}
+                      'maxframes': maxframes,
+                      'age': age}
     
     if v_type == 'orig':
         ESV, EDV = origVolume(es,ed)
@@ -98,7 +122,7 @@ def getVolume(patient,patientdict, v_type = 'orig', ty = None):
         ESV, EDV = STVolume(es,ed)
         return(ESV, EDV, issues)
     if v_type == 'zeros':
-        ESV, EDV = zerosVolume(es,ed, ty)
+        ESV, EDV, issues = zerosVolume(es,ed, issues, ty)
         return (ESV, EDV, issues)
     
 def origVolume(es, ed):
@@ -107,11 +131,12 @@ def origVolume(es, ed):
     
     a = sorted(es)
     b = sorted(ed)
-    
+#     print(len(a), len(b))
     for i in range(len(a)-1):
         ESVi = (es[a[i]]['zmin'] + es[a[i+1]]['zmin']) * ((abs(a[i]-a[i+1]))/2)
-        
+#         print ('********ESVi:',a[i],a[i+1],ESVi)
         ESV = ESV + ESVi
+#         print ('********ESV: ', ESV)
     
     for i in range(len(b)-1):
         EDVi = (ed[b[i]]['zmax'] + ed[b[i+1]]['zmax']) * ((abs(b[i] - b[i+1])/2))
@@ -121,6 +146,38 @@ def origVolume(es, ed):
     EDV = EDV / 1000
     return (ESV, EDV)
 
+def zero_Top_Bottom(es,ed):
+    ESV = 0
+    EDV = 0
+    
+    a = sorted(es)
+    b = sorted(ed)
+    
+    for i in range(len(a)-1):
+        if (i == 0):
+            ESVi = (0 + es[a[i+1]]['zmin']) * ((abs(a[i]-a[i+1]))/2)
+            ESV = ESV + ESVi
+        elif (i == (len(a)-1)):
+            ESVi = (es[a[i]]['zmin'] + 0) * ((abs(a[i]-a[i+1]))/2)
+            ESV = ESV + ESVi
+        else:
+            ESVi = (es[a[i]]['zmin'] + es[a[i+1]]['zmin']) * ((abs(a[i]-a[i+1]))/2)
+            ESV = ESV + ESVi
+    for i in range(len(b)-1):
+        if (i == 0):
+            EDVi = (0 + ed[b[i+1]]['zmax']) * ((abs(b[i]-b[i+1]))/2)
+            EDV = EDV + EDVi
+        elif (i == (len(b)-1)):
+            EDVi = (ed[b[i]]['zmax'] + 0) * ((abs(b[i]-b[i+1]))/2)
+            EDV = EDV + EDVi
+        else:
+            EDVi = (ed[b[i]]['zmax'] + ed[b[i+1]]['zmax']) * ((abs(b[i] - b[i+1])/2))
+            EDV = EDV + EDVi
+    
+    ESV = ESV / 1000
+    EDV = EDV / 1000
+    return (ESV, EDV)
+        
 def STVolume(es, ed, STway = 'sub'):
     ESV = 0
     EDV = 0
@@ -161,23 +218,121 @@ def STVolume(es, ed, STway = 'sub'):
     
     return (ESV, EDV)
 
-def zerosVolume(es,ed, ty = None):
+# def zerosVolume(es,ed, ty = None):
+#     ESV = 0
+#     EDV = 0
+    
+#     a = sorted(es)
+#     count = 0 
+#     for i in range(len(a)):
+#         count +=1
+#         print ('*******SAX Number: ', a[i])
+#         print (count,len(a))
+#         if (es[a[i]]['zmin'] == 0) and (count > 1) and (count < len(a)):
+#             print ('************** Min Zero: ',es[a[i]])
+#             lst = [x for x in es[a[i]]['zcounts'] if x >0]
+#             print ('Non zero Values: ',lst)
+#             if len(lst) > 0:
+#                 secmin = min(lst)
+#                 print ('Min Update: ', secmin)
+#                 es[a[i]].update({'zmin':secmin})
+#                 print (es[a[i]])
+#             else:
+#                 del es[a[i]]
+#         if (es[a[i]]['zmin'] == 0) and (len(a) == 2):
+#             print ('************** Min Zero: ',es[a[i]])
+#             lst = [x for x in es[a[i]]['zcounts'] if x >0]
+#             print ('Non zero Values: ',lst)
+#             if len(lst) > 0:
+#                 secmin = min(lst)
+#                 print ('Min Update: ', secmin)
+#                 es[a[i]].update({'zmin':secmin})
+#                 print (es[a[i]])
+#     b = sorted(ed)
+#     for i in range(len(b)):
+#         if ed[b[i]]['zmax'] == 0:
+#             del ed[b[i]]
+    
+#     if ty is None:
+#         ESV, EDV = origVolume(es, ed)
+#     else: 
+#         ESV, EDV = STVolume(es,ed)
+#     return (ESV, EDV)     
+
+def zerosVolume(es,ed, issues,ty = None):
+#     print ('***********************', ty)
     ESV = 0
     EDV = 0
-    
+#     for i in issues:
+#         print ('**************************')
+#         print (len(issues[i]['minframes']))
     a = sorted(es)
+#     print (len(a))
+#     print ('********ES: ',es)
     count = 0 
-    for i in range(len(a)):
-        count +=1
-        if (es[a[i]]['zmin'] == 0) and (count > 1) and (count < len(a)):
-            lst = [x for x in es[a[i]]['zcounts'] if x >0]
-            print (lst)
+#     print (es)
+#     print (type(es), len(a))
+    if len(a) == 2:
+        for i in range(len(a)):
+#             print ('**********',es[a[i]]['zcounts'])
+            keys = list(es[a[i]]['zcounts'].keys())
+            lst = [int(x) for x in keys if int(x) >0]
             if len(lst) > 0:
                 secmin = min(lst)
+                secminframe = es[a[i]]['zcounts'][str(secmin)]['frame']
                 es[a[i]].update({'zmin':secmin})
-                print (es[a[i]])
-            else:
-                del es[a[i]]
+                for j in issues:
+                    for k in range(len(issues[j]['minframes'])):
+                        if a[i] == issues[j]['minframes'][k][2]:
+                            issues[j]['minframes'][k][1] = secminframe
+#                             issues[j]['minframes'][k].append(secmin)
+    else:
+#         print ('ELSE**************************')
+        for i in range(len(a)):
+            count +=1
+#         print ('*******SL Number: ', a[i])
+#         print (count,len(a))    
+            if (es[a[i]]['zmin'] == 0):# and (count > 1) and (count < len(a)):
+    #                 print ('************** Min Zero: ',es[a[i]])
+                    keys = list(es[a[i]]['zcounts'].keys())
+                    lst = [int(x) for x in keys if int(x) >0]
+    #             print ('Non zero Values: ',lst)
+                    if len(lst) > 0:
+                        secmin = min(lst)
+                        secminframe = es[a[i]]['zcounts'][str(secmin)]['frame']
+#                     print ('Min Update: ', secmin)
+                        es[a[i]].update({'zmin':secmin})
+                        for j in issues:
+                            for k in range(len(issues[j]['minframes'])):
+                                if a[i] == issues[j]['minframes'][k][2]:
+#                                     print ('Frame Update: ', issues[j]['minframes'][k][1], secminframe)
+                                    issues[j]['minframes'][k][1] = secminframe
+#                                     issues[j]['minframes'][k].append(secmin)
+#                                 print (issues[j]['minframes'][k])
+    #                 es[a[i]].update({'minframes': secminframe})
+    #                 print (es[a[i]])
+                    else:
+                        del es[a[i]]
+            
+#         if (es[a[i]]['zmin'] == 0) and (len(a) == 2):
+# #             print ('************** Min Zero: ',es[a[i]])
+#             keys = list(es[a[i]]['zcounts'].keys())
+#             lst = [int(x) for x in keys if int(x) >0]
+# #             print ('Non zero Values: ',lst)
+#             if len(lst) > 0:
+#                 secmin = min(lst)
+#                 secminframe = es[a[i]]['zcounts'][str(secmin)]['frame']
+# #                 print ('Min Update: ', secmin)
+#                 es[a[i]].update({'zmin':secmin})
+#                 for j in issues:
+#                     for k in range(len(issues[j]['minframes'])):
+#                         if a[i] == issues[j]['minframes'][k][2]:
+# #                             print ('Frame Update: ', issues[j]['minframes'][k][1], secminframe)
+#                             issues[j]['minframes'][k][1] = secminframe
+#                             print (issues[j]['minframes'][k])
+#                 es[a[i]].update({'minframes': secminframe})
+#                 print (es[a[i]])
+                
     b = sorted(ed)
     for i in range(len(b)):
         if ed[b[i]]['zmax'] == 0:
@@ -185,9 +340,12 @@ def zerosVolume(es,ed, ty = None):
     
     if ty is None:
         ESV, EDV = origVolume(es, ed)
-    else: 
+    if ty == 'ST': 
         ESV, EDV = STVolume(es,ed)
-    return (ESV, EDV)     
+    if ty == 'TB':
+#         print ('*************TB***************')
+        ESV, EDV = zero_Top_Bottom(es,ed)
+    return (ESV, EDV, issues)
 
 def getSliceOutliers(Volumes, data = None):
     few_slices = []
@@ -212,6 +370,11 @@ def getSliceOutliers(Volumes, data = None):
                 few_slices.append(p)
             
     return few_slices
+
+def getAge(origpath, agepath):
+    img= dicomwrapper(origpath, agepath)
+    age = img.PatientAge
+    return age
 
 def removeOutliers(df, Volumes, data):
     few_slices = getSliceOutliers(Volumes, data)
@@ -263,16 +426,26 @@ def create_df(Volumes):
             ID = i.strip('train_')
             ESV = Volumes[i]['ESV']
             EDV = Volumes[i]['EDV']
+            age = Volumes[i]['issues'][ID]['age']
+            age_unit = age[-1]
+            age_int = int(age[:-1])
+            train_pred.append([int(ID), ESV, EDV,age, age_int, age_unit])
 #             print (i,ID)
-            train_pred.append([int(ID), ESV, EDV])
+#             train_pred.append([int(ID), ESV, EDV])
         if ('validate') in i:
             ID = i.strip('validate_')
             ESV = Volumes[i]['ESV']
             EDV = Volumes[i]['EDV']
+            age = Volumes[i]['issues'][ID]['age']
+            age_unit = age[-1]
+            age_int = int(age[:-1])
+            validate_pred.append([int(ID), ESV, EDV,age, age_int, age_unit])
 #             print (i,ID)
-            validate_pred.append([int(ID), ESV, EDV])
-    train_pred_df = pd.DataFrame(train_pred, columns= ['Id','Systole_P', 'Diastole_P'])
-    validate_pred_df = pd.DataFrame(validate_pred, columns= ['Id','Systole_P', 'Diastole_P'])
+#             validate_pred.append([int(ID), ESV, EDV])
+    train_pred_df = pd.DataFrame(train_pred, columns= ['Id','Systole_P', 'Diastole_P',
+                                                       'Age','Age_Int','Age Unit'])
+    validate_pred_df = pd.DataFrame(validate_pred, columns= ['Id','Systole_P', 'Diastole_P',
+                                                            'Age','Age_Int','Age Unit'])
     
     train_df = pd.concat([train_gt.set_index('Id'),train_pred_df.set_index('Id')], axis=1, join='inner')
     train_df['Systole_diff'] = train_df['Systole'] - train_df['Systole_P']
@@ -332,11 +505,20 @@ def plot_outlier_imgs(img_file, pred_file, method, Type,img_txt, v, image, frame
 #         base_dir = '/opt/output/dsb/norm/'
 #     else:
     base_dir = '/masvol/output/dsb/norm/'
+    f = sorted(f, key=lambda frame: frame[2])
     for i in range(len(f)):
 #         img_f = '/masvol/output/dsb/norm/1/3/'+s+'/'+image+'/'+f[i][0]+'_'+f[i][1]
-        img_f_t = base_dir+method+'/'+Type+'/'+s+'/'+image+'/'+f[i][0]+'_'+f[i][1]
+        if isinstance(f[i][1], list):
+#             print ('True', f[i][0])
+            f_0 = f[i][0]
+            f_1 = f[i][1][0]
+        else:
+#             print ('False', f[i][0], f[i][1])
+            f_0 = f[i][0]
+            f_1 = f[i][1]
+        img_f_t = base_dir+method+'/'+Type+'/'+s+'/'+image+'/'+f_0+'_'+f_1
 #         img_o = '/masvol/output/dsb/norm/1/3/'+s+'/'+image+'/'+f[i][0]+'_'+f[i][1]
-        img_o_t = base_dir+method+'/'+Type+'/'+s+'/'+image+'/'+f[i][0]+'_'+f[i][1]
+        img_o_t = base_dir+method+'/'+Type+'/'+s+'/'+image+'/'+f_0+'_'+f_1
 #         print (img_f, img_f_t)
         idx.append(imgs.index(img_f_t))
         orig.append(img_o_t)
@@ -387,11 +569,15 @@ def display_images_predictions (image_file, pred_file,  num_images=4, image_list
         if orig is not None:
             print (orig[count])
         f, axs = plt.subplots(1,3,figsize=(15,15))
+        print (i)
         plt.subplot(131),plt.imshow(ts[i].reshape(x, y))
+#         plt.savefig('Original'+ str(i) +'.png')
         plt.title('Image '+str(i)), plt.xticks([]), plt.yticks([])
         plt.subplot(132),plt.imshow(pred2[i].reshape(x, y))
+#         plt.savefig('Prediction'+ str(i) +'.png')
         plt.title('Prediction'), plt.xticks([]), plt.yticks([])
         plt.subplot(133),plt.imshow(ts[i].reshape(x, y)), plt.imshow(pred2[i].reshape(x, y), 'binary', interpolation='none', alpha=0.3)
+#         plt.savefig('Overlay'+ str(i) +'.png')
         plt.title('Overlay'), plt.xticks([]), plt.yticks([])
         plt.show()
         count +=1
