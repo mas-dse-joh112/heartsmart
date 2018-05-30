@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+""" Create dsb files in 4d array for testing """
+
 import cv2 
 import re, sys
 import fnmatch, shutil, subprocess
@@ -25,8 +27,6 @@ set_random_seed(200)
 
 print("\nSuccessfully imported packages!!!\n")
 
-TRAIN_TEST_SPLIT_RATIO = 0.1  # train/test split ratio for Sunnybrook and ACDC data
-
 BASE_DIR = "/masvol/output/"
 SOURCE = "dsb"
 PATH = "train"
@@ -42,16 +42,14 @@ UNET_TRAIN_DIR = BASE_DIR + SOURCE + "/norm/1/3/unet_model_{0}/data/".format(PAT
 
 #Settings
 
-TRAIN_TEST_SPLIT_RATIO = 0.1  # train/test split ratio
-
 def shrink_case(case):
     """
-    
+    Reformatting the patient id
 
     Args:
-      case: 
+      case:  patient id
 
-    Returns:
+    Returns: patien id in the desired format
 
     """
     toks = case.split("-")
@@ -61,9 +59,9 @@ def shrink_case(case):
         
 
         Args:
-          x: 
+          x: patient id captured
 
-        Returns:
+        Returns: patient id in the format we want
 
         """
         try:
@@ -75,7 +73,7 @@ def shrink_case(case):
     return "-".join([shrink_if_number(t) for t in toks])
 
 class Image_info_map(object):
-    """ """
+    """Capturing patient id, slice, and frame ids for identification """
     def __init__(self, ctr_path):
         self.ctr_path = ctr_path
         #print (ctr_path)
@@ -105,12 +103,12 @@ class Image_info_map(object):
 
 def get_dsb_image_list(data_path):
     """
-    
+    Get all the dicom numpy array files and map them to the image info extracted from the regex
 
     Args:
-      data_path: 
+      data_path: Source file path
 
-    Returns:
+    Returns: image list and the corresponding image info extracted
 
     """
     print ('DP', data_path)
@@ -132,14 +130,15 @@ def get_dsb_image_list(data_path):
 
 def crop_center(img,cropx,cropy):
     """
-    
+    Function to crop the image outward from the center. 
 
     Args:
-      img: 
-      cropx: 
-      cropy: 
+      img: Numpy image array
+      cropx: Int value by which to crop the image in the x direction
+      cropy: Int value by which to crop the image in the y direction
 
     Returns:
+      Numpy image array with the desired crop size (cropx x cropy)
 
     """
     y,x = img.shape
@@ -149,14 +148,14 @@ def crop_center(img,cropx,cropy):
 
 def get_dsb_images(img_path_list, img_count, crop_size):
     """
-    
+    Get the images and crop them to the uniform size specified
 
     Args:
-      img_path_list: 
-      img_count: 
-      crop_size: 
+      img_path_list:  images passed in
+      img_count: The number of images passed in
+      crop_size: The size of the image for cropping
 
-    Returns:
+    Returns: images, their file paths, and the image info
 
     """
     
@@ -193,14 +192,15 @@ def get_dsb_images(img_path_list, img_count, crop_size):
 
 def convert_images_to_nparray_and_save (imgs, save_file, image_size):
     """
-    
+    Function to convert the dsb images for one patient into a 4-D array.
 
     Args:
-      imgs: 
-      save_file: 
-      image_size: 
+      imgs: Images for one patient.
+      save_file: Path of where to save the file
+      image_size: Size of the input image
 
     Returns:
+      Numpy 4-D array for the patient images
 
     """
     rows = image_size
