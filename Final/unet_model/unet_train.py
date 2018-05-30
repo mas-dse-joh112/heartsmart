@@ -120,8 +120,6 @@ def train_unet_model(model_name, image_size, training_images, training_labels, t
 
 
 if __name__ == "__main__":
-    #import unet_train_config # import your config file
-
     if len(sys.argv) < 1:
         print ('Provide a config file')
 
