@@ -61,14 +61,15 @@ class Method1(object):
 
     def update_filesource(self, key, value, append=0):
         """
-        Function that updates the filesource, acdc, sunnybrook, or dsb, to identify which images are getting normalized. 
+        Function that updates the filesource dictionary for acdc, sunnybrook, or dsb, to identify which images are getting normalized. 
+        Not being used, but it's available
 
         Args:
-          key: 
-          value: 
-          append:  (Default value = 0)
+          key: Dictionary key for what we want to store, but not used currently 
+          value: Dictionary value for what we want to store, but not used currently
+          append:  (Default value = 0), if the value is in the list format, append flag can be turned on to append
 
-        Returns:
+        Returns: none
 
         """
         #print 'k', key, 'v', value, 'a', append
@@ -113,7 +114,7 @@ class Method1(object):
         return cv2.flip(img,-1)
 
     def get_acdc_files(self):
-        """Get ACDC source data then check for file and processing types """
+        """Get ACDC source data then check for file and processing types to apply normalization"""
 
         for f in self.inputfiles:
             nodes = f.split('/')
