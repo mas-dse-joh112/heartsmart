@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 
+"""This class allows us to run our training and predicting processes with multi-gpus
+   This code is borrowed from https://github.com/keras-team/keras/issues/2436#issuecomment-354882296
+"""
+
 from keras.models import *
 from keras.utils import multi_gpu_model
 
 class ModelMGPU(Model):
+    """ The based model is passed in for running the process with multi gpus when possible """
     def __init__(self, ser_model, gpus):
         pmodel = multi_gpu_model(ser_model, gpus)
         self.__dict__.update(pmodel.__dict__)
