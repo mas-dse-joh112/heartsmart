@@ -2,10 +2,9 @@
 """Config file for running unet_train"""
 
 from keras.losses import binary_crossentropy
-#from loss_functions import log_dice_loss
 
 GPU_CLUSTER = "0,1"
-per_process_gpu_memory_fraction = 0.4
+per_process_gpu_memory_fraction = 0.4 # low so you can run other jobs in the same GPU device
 model_name = "your_model_name"
 image_size = 176 # or 256
 training_images = "/masvol/heartsmart/unet_model/path1/data/combined_m_t_176_train_images.npy"
@@ -21,9 +20,13 @@ batch_size = 32 # or 16 or 64
 epochs = 80 # or 100
 augmentation = True
 model_summary = False
+
 ''' 
  Example commandline arguments
  
+ python3 /masvol/heartsmart/Final/unet_model/unet_train.py unet_train_config
+
+ # old stuff
  python3 /masvol/heartsmart/unet_model/unet_train_sk.py 1_3_0_176_CLAHE_augx_drop_bce1 176 \
 /masvol/output/acdc/norm/1/3/unet_model/data16bit/combined_1_3_176_train_images.npy \
 /masvol/output/acdc/norm/1/3/unet_model/data16bit/combined_1_3_176_train_labels.npy \
