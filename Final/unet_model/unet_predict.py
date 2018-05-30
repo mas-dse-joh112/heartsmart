@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+""" Module for predicting images files with the supplied of the model file
+    Parameters are set in a config file passed in
+"""
+
 import cv2 
 import re, sys
 import fnmatch, shutil, subprocess
@@ -25,11 +29,7 @@ from helper_utilities import *
 from loss_functions  import *
 
 #from unet_model_batchnormal  import *
-from unet_model  import *
-
-
-
-#from helpers_dicom import DicomWrapper as dicomwrapper
+from unet_model import *
 
 #Fix the random seeds for numpy (this is for Keras) and for tensorflow backend to reduce the run-to-run variance
 from numpy.random import seed
@@ -37,18 +37,13 @@ seed(12345)
 from tensorflow import set_random_seed
 set_random_seed(12345)
 
-#import matplotlib.pyplot as plt
-#%matplotlib inline
-
 import tensorflow as tf
 
-GPU_CLUSTER = "4,5"
-#GPU_CLUSTER = "2,3"
+GPU_CLUSTER = "0,1,2,3,4,5,6,7" # set in config file, override later
 os.environ["CUDA_VISIBLE_DEVICES"] = GPU_CLUSTER
-GPUs = len(GPU_CLUSTER.split(','))
+GPUs = None
 
 from modelmgpu import ModelMGPU
-#GPUs = 1
 
 import time
 
@@ -57,12 +52,9 @@ print("START:", start)
 
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
-config.gpu_options.per_process_gpu_memory_fraction = 0.90
-session = tf.Session(config=config)
+
 print("\nSuccessfully imported packages!!!\n")
 
-
-            
 #################
 # Method load pre-trained weights to unet-model and run predictions 
 #
@@ -70,7 +62,24 @@ print("\nSuccessfully imported packages!!!\n")
 
 
 def predict_with_pretrained_weights(model_name, nGPU, model_file, image_size, test_image_file, test_label_file = "none", augmentation = False, contrast_normalize = False):
+    """
+    
+
+    Args:
+      model_name:  unique model name for identificatio
+      nGPU: number of GPU devices using
+      model_file: model file for predicting
+      image_size: uniform image size
+      test_image_file: image files in 4d numpy array for testing
+      test_label_file:  (Default value = "none"), label files or none
+      augmentation:  (Default value = False)
+      contrast_normalize:  (Default value = False)
+
+    Returns: U-net model instance
+
+    """
     img_size_list = [176, 256]
+
     if image_size not in img_size_list:
         print ("image size %d is not supported"%image_size)
         return 
@@ -85,6 +94,7 @@ def predict_with_pretrained_weights(model_name, nGPU, model_file, image_size, te
 
     print('-'*30)
     print ("Get Test images and labels...")
+
     if test_label_file == "none": 
         #ts = load_images(test_image_file, normalize= True, contrast_normalize = True)
         ts = load_images(test_image_file, normalize= True, contrast_normalize = contrast_normalize)
@@ -107,50 +117,48 @@ def predict_with_pretrained_weights(model_name, nGPU, model_file, image_size, te
     return myunet
 
 
-
 if __name__ == "__main__":
+    if len(sys.argv) < 1:
+        print ('Provide a config file')
+
+    myconfig = sys.argv[1]
+
+    args = __import__(myconfig)
+
     img_size_list = [176, 256]
-    args = sys.argv[1:]
-    print ("total arguments", len(args), args)
-    if len(args) != 8:
-        print ("insufficient arguments ")
-        print (" enter model_name, model_file (weights file), image_size, image_file, label_file(enter none if no labels), save_folder(to save predictions), augmentation (True or False), contrast_normalization (True or False)")
-        sys.exit() 
-    
-    model_name = sys.argv[1]
-    image_size = int(sys.argv[2])
+
+    arg_list = ['model_name','image_size','weights_file','image_file','label_file','save_folder','augmentation','contrast_normalization']
+    dir_args = dir(args)
+
+    for x in arg_list:
+        if x not in dir_args:
+            print ("insufficient arguments ")
+            print (" enter model_name, image_size, model_file (weights file), image_file, label_file(enter none if no labels), save_folder(to save predictions), augmentation (True or False), contrast_normalization (True or False) in the config file")
+            sys.exit() 
+
+    image_size = args.image_size
+
     if image_size not in img_size_list:
         print ("image size %d is not supported"%image_size)
         sys.exit()
-    weights_file = sys.argv[3]   
-    image_file = sys.argv[4]
-    label_file = sys.argv[5]
-    save_folder = sys.argv[6]
-    if (sys.argv[7] == "True"):
-        augment = True
-    else:
-        augment = False
-      
-    if (sys.argv[8] == "True"):
-        contrast_norm = True
-    else:
-        contrast_norm = False
 
-          
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.GPU_CLUSTER
+    GPUs = len(args.GPU_CLUSTER.split(','))
+    config.gpu_options.per_process_gpu_memory_fraction = args.per_process_gpu_memory_fraction
+    session = tf.Session(config=config)
+
+    model_name = args.model_name
+    image_size = args.image_size
+    weights_file = args.weights_file
+    image_file = args.image_file
+    label_file = args.label_file
+    save_folder = args.save_folder
+    augment = args.augmentation
+    contrast_norm = args.contrast_normalization
+
     mymodel = predict_with_pretrained_weights(model_name=model_name,nGPU=0,model_file=weights_file,image_size=image_size, \
            test_image_file=image_file, test_label_file=label_file, augmentation=augment, contrast_normalize=contrast_norm)
     
     pred_file =  save_folder + model_name + "_predictions.npy"
     print ("Saving predictions", pred_file)
     np.save(pred_file, mymodel.predictions)
-    
-    
-'''
-Sample command : 
-
-python3 /masvol/heartsmart/unet_model/unet_predict_sk.py pred_test 176 \
-/masvol/heartsmart/unet_model/baseline/results/experiments/1_3_0_176_CLAHE_augx_bce1.hdf5 \
-/masvol/output/dsb/norm/outlier_testing/m1t3/dsb_315_176_test.npy  none \
-/masvol/heartsmart/unet_model/baseline/results/experiments/ False True   > runlogpred_test.txt &
-'''
-  
