@@ -35,6 +35,7 @@ print("\nSuccessfully imported packages for unet model!!!\n")
 
 
 class myUnet(object):
+    """ U-net model class  """
     def __init__(self, model_name = "unet", nGPU=0, image_size = 256, batch_norm = False, dropout = True, optimizer = 'Adam', lr=.00001, loss_fn="dice_loss"):
         self.img_rows = image_size
         self.img_cols = image_size
@@ -91,6 +92,17 @@ class myUnet(object):
             self.build_unet_batch_norm()
 
     def load_data(self, train_data, test_data, contrast_normalize=False):
+        """
+        loading the image files for training and testing
+
+        Args:
+          train_data: training image files in 4d numpy array
+          test_data:  testing image files in 4d numpy array
+          contrast_normalize:  (Default value = False)
+
+        Returns: none
+
+        """
         print('-'*30)
         print("loading data")
         self.contrast_norm = contrast_normalize
@@ -100,6 +112,16 @@ class myUnet(object):
         print('-'*30)
 
     def get_crop_shape(self, src, dest):
+        """
+        
+
+        Args:
+          src: 
+          dest: 
+
+        Returns:
+
+        """
         # width, the 3rd dimension
         cw = (src.get_shape()[2] - dest.get_shape()[2]).value
         assert (cw >= 0)
@@ -121,16 +143,21 @@ class myUnet(object):
         return (ch1, ch2), (cw1, cw2)
     
     def build_unet_15layers(self):
-        '''
+        """
         Input shape
-        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first' 
+        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
         
         Output shape
-        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or 
-        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'. 
+        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or
+        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
-        '''
+
+        Args:
+
+        Returns:
+
+        """
         print('-'*30)
         print ("Building 15 layers U-Net model")
         print('-'*30)
@@ -216,16 +243,21 @@ class myUnet(object):
             print ("Error invalid parameters to model compilation")
         
     def build_unet_28layers(self):
-        '''
+        """
         Input shape
-        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first' 
+        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
         
         Output shape
-        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or 
-        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'. 
+        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or
+        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
-        '''
+
+        Args:
+
+        Returns:
+
+        """
         print('-'*30)
         print ("Building 28 layers U-Net model")
         print('-'*30)
@@ -359,16 +391,21 @@ class myUnet(object):
             print ("Error invalid parameters to model compilation")
  
     def build_unet(self):
-        '''
+        """
         Input shape
-        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first' 
+        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
         
         Output shape
-        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or 
-        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'. 
+        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or
+        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
-        '''
+
+        Args:
+
+        Returns:
+
+        """
         print('-'*30)
         print ("Building 23 layers U-net model")
         print('-'*30)
@@ -474,16 +511,21 @@ class myUnet(object):
     
     def build_unet_batch_norm(self):
         
-        '''
+        """
         Input shape
-        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first' 
+        4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
         
         Output shape
-        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or 
-        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'. 
+        4D tensor with shape: (samples, filters, new_rows, new_cols) if data_format='channels_first' or
+        4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
-        '''
+
+        Args:
+
+        Returns:
+
+        """
         print('-'*30)
         print ("Building 23 layer U-net model with Batch Normalization")
         print('-'*30)
@@ -610,6 +652,15 @@ class myUnet(object):
     
     
     def load_pretrained_weights(self, model_file):
+        """
+        Loading the weights of the model
+
+        Args:
+          model_file:  The model file created
+
+        Returns: none
+
+        """
         self.model_file = model_file
         print('-'*30)
         print('Loading pre-trained weights...')
@@ -620,6 +671,17 @@ class myUnet(object):
  
         
     def predict(self, test_image_array, test_label_array ="none", augmentation=False):
+        """
+        Apply prediction with the model created
+
+        Args:
+          test_image_array: Testing images in numpy array format
+          test_label_array:  (Default value = "none") Label images, or no label
+          augmentation:  (Default value = False), for unbalanced data
+
+        Returns: none
+
+        """
         self.test_images = test_image_array
         self.test_labels = test_label_array
         
@@ -687,6 +749,18 @@ class myUnet(object):
             print ("Prediction Scores after rounding", scores)
 
     def train_and_predict(self, model_path, batch_size = 4, nb_epoch = 10, augmentation = False): 
+        """
+        Apply training and predicting with the parameters passed in
+
+        Args:
+          model_path:  where the model file resides
+          batch_size:  (Default value = 4)
+          nb_epoch:  (Default value = 10)
+          augmentation:  (Default value = False)
+
+        Returns: none
+
+        """
         model_file = model_path + self.model_name + '.hdf5'
         self.model_file = model_file #path to save the weights with best model
         self.batch_size = batch_size
@@ -762,6 +836,15 @@ class myUnet(object):
         print('-'*30)
             
     def save_model_info(self, mypath = "./"):
+        """
+        Keep a history of the model for evaluation
+
+        Args:
+          mypath:  (Default value = "./"), model file path
+
+        Returns: none
+
+        """
         learn_file =  self.model_name + "_learning_history.json"
         learn_file = mypath + learn_file
         hist = self.history.history
@@ -779,12 +862,14 @@ class myUnet(object):
         hist['tr_batchsize'] = self.batch_size 
         hist['tr_contrast_norm'] = self.contrast_norm
         hist['tr_augmentation'] = self.augmentation
+
         if self.augmentation == True :
             hist['tr_augment_count'] = self.augmentation_count
             hist['tr_augment_rotation'] = self.augmentation_parms['rotation_range']
             hist['tr_augment_shift_w'] = self.augmentation_parms['width_shift_range']
             hist['tr_augment_shift_h'] = self.augmentation_parms['height_shift_range']
             hist['tr_augment_zoom'] = self.augmentation_parms['zoom_range']
+
         print('-'*30)
         print ("Saving Evaluation Scores on test set")
 
@@ -823,6 +908,7 @@ class myUnet(object):
         perf['tr_batchsize'] = self.batch_size
         perf['tr_contrast_norm'] = self.contrast_norm
         perf['tr_augmentation'] = self.augmentation
+
         if self.augmentation == True :
             perf['tr_augment_count'] = self.augmentation_count
             perf['tr_augment_rotation'] = self.augmentation_parms['rotation_range']
@@ -842,6 +928,8 @@ class myUnet(object):
         perf_file = mypath + perf_file
         
         print ("Saving Performance values", perf_file)
+
         with open(perf_file, 'w') as file:
             json.dump(self.perf, file, indent=2)
+
         print('-'*30)
