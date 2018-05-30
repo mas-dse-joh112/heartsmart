@@ -492,8 +492,8 @@ class Method2(object):
         return self.contrast(cropped)
 
     def getAlignImg(self, img, label = None):#!!!notice, only take uint8 type for the imrotate function!!!
-       """
-       Function that rotates the image or label.
+        """
+        Function that rotates the image or label.
 
         Args:
           img: numpy image array
