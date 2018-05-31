@@ -14,6 +14,7 @@ import cv2
 from sklearn.metrics import log_loss
 from sklearn.metrics import auc, roc_curve, accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
 from collections import OrderedDict
+from helpers_dicom import DicomWrapper as dicomwrapper
 
 perf_keys = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accuracy", "dice_coef", "precision","recall", \
              "f1_score", "true_positive", "false_positive","true_negative","false_negative", "zero_contour_labels", \
@@ -603,6 +604,109 @@ def find_outliers_in_prediction(y_pred_f):
     pd1 = list(pd1[0])
     print ("Sample Index with contour pixels <= 5", pd1)
 
+
+def dump_and_sort(image_one_file, origpath, newpath):
+    """ Get the minimum and the maximum contours from each slice """
+    count = 0
+    new_dir = os.path.dirname(newpath)
+
+    if not os.path.exists(new_dir):
+        os.makedirs(new_dir)
+
+    with open(image_one_file, 'r') as inputs:
+        jin = json.load(inputs)
+        slicedict = dict()
+
+        for i in sorted(jin):
+            count += 1
+            rootnode = i.split("/")
+            tmp=rootnode[-1].split('_')
+            sax = tmp[0] +'_'+ tmp[1]
+            frame = tmp[-1]
+
+            if sax in slicedict:
+                slicedict[sax].update({frame: jin[i]})
+            else:
+                slicedict.update({sax: {frame: jin[i]}})
+
+        min_max = get_min_max_slice(slicedict, origpath)
+        
+        with open(newpath, 'w') as output:
+            output.write("{0}\n".format(json.dumps(min_max)))
+
+def get_min_max_slice(slicedict, origpath):
+    """
+    Figure out the min and max of each slice
+
+    Args:
+      slicedict:  slice info
+      origpath: original dcm numpy array file path
+
+    Returns: Identified min max info in dict
+
+    """
+    identified = {}
+
+    for i in slicedict: #i is sax
+        zmin = 9999999
+        zmax = 0
+        zminframe = ''
+        zmaxframe = ''
+        zcounts = {}
+
+        for j in slicedict[i]: #j is frame
+            zcount = slicedict[i][j]['ones']
+
+            if zcount in zcounts:
+                if 'frame' in zcounts[zcount]:
+                    zcounts[zcount]['frame'].append(j)
+                else:
+                    zcounts[zcount].update({'frame':[j]})
+            else:
+                zcounts.update({zcount: {'frame':[j]}})
+            
+            if zcount < zmin:
+                zmin = zcount
+                zminframe = j
+
+            if zcount > zmax:
+                zmax = zcount
+                zmaxframe = j
+
+        maxpath = i+'/'+zmaxframe.strip('.npy')
+        minpath = i+'/'+zminframe.strip('.npy')
+        maxsl = None
+        minsl = None
+
+        try:
+            maxdw = dicomwrapper(origpath, maxpath)
+            maxsl = maxdw.slice_location()
+            maxst = maxdw.slice_thickness()
+        except:
+            print ('error max',origpath, maxpath)
+            maxsl = None
+            maxst = None
+
+        try:
+            mindw = dicomwrapper(origpath, minpath)
+            minsl = mindw.slice_location()
+            minst = mindw.slice_thickness()
+        except:
+            print ('error min',origpath, minpath)
+            minsl = None
+            minst = None
+
+        identified[i] = {'zmin':zmin,
+                         'zminframe': zminframe,
+                         'minSL': minsl,
+                         'minST': minst,
+                         'zmax': zmax,
+                         'zmaxframe': zmaxframe,
+                         'maxSL': maxsl,
+                         'maxST': maxst,
+                        'zcounts': zcounts}
+
+    return identified
 
     
 if __name__ == "__main__":
