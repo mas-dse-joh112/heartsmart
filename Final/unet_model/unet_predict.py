@@ -86,24 +86,43 @@ def predict_with_pretrained_weights(args):
     inputpath = "/masvol/data/{0}/{1}/*".format(myunet.file_source, myunet.source)
     pcount = 0
     print (inputpath)
+    topdir = "{0}/{1}".format(myunet.test_source_path, myunet.data_source)
 
     for i in glob.glob(inputpath):
         nodes = i.split('/')
         myunet.patient = nodes[-1]
         print ('|'+myunet.patient+'|')
         # test_image_file: image files in 4d numpy array for testing, image_4d_file
-        myunet.image_4d_file = "{0}/{1}/data/{2}_{3}_{4}_train.npy".format(myunet.test_source_path, myunet.data_source, myunet.file_source, myunet.patient, myunet.image_size)
+        myunet.image_4d_file = "{0}/data/{1}_{2}_{3}_train.npy".format(topdir, myunet.file_source, myunet.patient, myunet.image_size)
         print ('4d',myunet.image_4d_file)
-        myunet.image_source_file = "{0}/{1}/data/{2}_{3}_image_path.txt".format(myunet.test_source_path, myunet.data_source, myunet.file_source, myunet.patient)
+        myunet.image_source_file = "{0}/data/{1}_{2}_image_path.txt".format(topdir, myunet.file_source, myunet.patient)
         print ('sf',myunet.image_source_file)
-        myunet.image_one_file = "{0}/{1}/{2}/{3}_{4}_{5}_one_count.json".format(myunet.test_source_path, myunet.data_source, myunet.model_path, myunet.file_source, myunet.patient, myunet.image_size)
+        myunet.image_one_file = "{0}/{1}/{2}_{3}_{4}_one_count.json".format(topdir, myunet.model_path, myunet.file_source, myunet.patient, myunet.image_size)
         # test_labels:  (Default value = "none"), label files or none
         myunet.test_labels = "none"
         #print ('io',myunet.image_one_file)
+        pred_file = "{0}/{1}/{2}_{3}_{4}_predictions.npy".format(topdir,myunet.predict_path,myunet.file_source,myunet.patient,myunet.image_size)
         myunet.do_predict()
+
+        pred_dir = os.path.dirname(pred_file)
+
+        if not os.path.exists(pred_dir):
+            os.makedirs(pred_dir)
+
+        np.save(pred_file, myunet.predictions)
+        myunet.pred_round = np.round(myunet.predictions)
+        pred_round_file = "{0}/{1}_{2}_{3}_pred_round.npy".format(pred_dir,myunet.file_source,myunet.patient,myunet.image_size)
+        np.save(pred_round_file, myunet.pred_round)
+
+        ts_norm_file = "{0}/{1}_{2}_{3}_ts_norm.npy".format(pred_dir,myunet.file_source,myunet.patient,myunet.image_size)
+        np.save(ts_norm_file, myunet.test_images)
+
         myunet.fourD_add1() 
         myunet.get_ones()
-        myunet.dump_and_sort()
+
+        origpath = '/masvol/data/{0}/{1}/{2}/study/'.format(myunet.file_source,myunet.source,str(myunet.patient))
+        newpath = '/masvol/output/{0}/volume/{1}/{2}/{3}_{4}_{5}.json'.format(myunet.file_source,myunet.method,myunet.volume_path,myunet.source,str(myunet.patient),myunet.image_size)
+        dump_and_sort(myunet.image_one_file, origpath, newpath)
 
         pcount += 1
         #if pcount > 1:
