@@ -54,11 +54,8 @@ print("\nSuccessfully imported packages!!!\n")
 # Create a U-Net model, train the model and run the predictions and save the trained weights and predictions
 #
 ##########################
-# /masvol/heartsmart/unet_model/data/sunnybrook_176_train_images.npy 
-# /masvol/heartsmart/unet_model/data/sunnybrook_176_train_images.npy 
-# /masvol/heartsmart/unet_model/data/sunnybrook_176_train_labels.npy
 
-def train_unet_model(model_name, image_size, training_images, training_labels, test_images, test_labels, model_path, dropout, optimizer, learningrate, lossfun, batch_size, epochs, augmentation = False, model_summary = False):
+def train_unet_model(model_name, image_size, training_images, training_labels, test_images, test_labels, model_path, batch_normalization, dropout, optimizer, learningrate, lossfun, batch_size, epochs, augmentation = False, model_summary = False):
     """
     Create a U-net model and train the model, run the predictions and save the trained weights and predictions
 
@@ -99,7 +96,7 @@ def train_unet_model(model_name, image_size, training_images, training_labels, t
         os.makedirs(model_path)
             
     # get the u-net model and load train and test data
-    myunet = myUnet(model_name = model_name, nGPU = GPUs, image_size = image_size, dropout = dropout, optimizer = optimizer, lr=learningrate, loss_fn = lossfn)
+    myunet = myUnet(model_name = model_name, nGPU = GPUs, image_size = image_size, batch_norm = batch_normalization, dropout = dropout, optimizer = optimizer, lr=learningrate, loss_fn = lossfn)
     myunet.load_data(train_data, test_data)
 
     if (model_summary == True):
@@ -111,11 +108,6 @@ def train_unet_model(model_name, image_size, training_images, training_labels, t
         
     res = myunet.train_and_predict(model_path, batch_size = batch_size, nb_epoch = epochs, augmentation = augmentation)
     
-#     if (augmentation == True) :
-#         res = myunet.train_with_augmentation(model_file, batch_size = batch_size, nb_epoch = epochs)
-#     else :
-#         res = myunet.train_and_predict(model_file, batch_size = batch_size, nb_epoch = epochs)
-        
     return myunet
 
 
@@ -125,17 +117,19 @@ if __name__ == "__main__":
 
     myconfig = sys.argv[1]
 
+    if myconfig.endswith('.py'):
+        myconfig = myconfig.replace('.py','')
+
     args = __import__(myconfig)
 
     img_size_list = [176, 256]
-    arg_list = ['model_name','image_size','training_images','training_labels','test_images','test_labels','model_path','dropout','optimizer','lr','lossfn','batch_size','epochs','augmentation','model_summary','GPU_CLUSTER','per_process_gpu_memory_fraction']
-    #args = unet_train_config
+    arg_list = ['model_name','image_size','training_images','training_labels','test_images','test_labels','model_path','batch_normalization','dropout','optimizer','lr','lossfn','batch_size','epochs','augmentation','model_summary','GPU_CLUSTER','per_process_gpu_memory_fraction']
     dir_args = dir(args)
 
     for x in arg_list:
         if x not in dir_args:
             print ("insufficient arguments ")
-            print ("enter model_name, image_size, training_images, training_labels, test_images, test_labels, model_path, dropout (True or False), optimizer, learningrate, loss_function, batch_size, epochs, augmentation (True or False), model_summary (True or False) in unet_train_config")
+            print ("enter model_name, image_size, training_images, training_labels, test_images, test_labels, model_path,batch_normalization (True or False), dropout (True or False), optimizer, learningrate, loss_function, batch_size, epochs, augmentation (True or False), model_summary (True or False) in unet_train_config")
             sys.exit() 
 
     image_size = args.image_size
@@ -155,6 +149,7 @@ if __name__ == "__main__":
     test_images = args.test_images
     test_labels = args.test_labels
     model_path = args.model_path
+    batch_normalization = args.batch_normalization
     dropout = args.dropout
     optimizer = args.optimizer
     lr = args.lr
@@ -164,10 +159,10 @@ if __name__ == "__main__":
     augmentation = args.augmentation
     model_summary = args.model_summary
 
-    print (model_name, image_size, training_images, training_labels, test_images, test_labels, model_path, dropout)
+    print (model_name, image_size, training_images, training_labels, test_images, test_labels, model_path,batch_normalization, dropout)
     print (optimizer, lr, lossfn, batch_size, epochs, augmentation, model_summary) 
     
-    mymodel = train_unet_model(model_name, image_size, training_images, training_labels, test_images, test_labels, model_path, dropout, optimizer, lr, lossfn, batch_size, epochs, augmentation, model_summary)
+    mymodel = train_unet_model(model_name, image_size, training_images, training_labels, test_images, test_labels, model_path, batch_normalization,  dropout, optimizer, lr, lossfn, batch_size, epochs, augmentation, model_summary)
     
     mymodel.save_model_info(model_path)           
 
