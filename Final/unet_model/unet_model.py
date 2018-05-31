@@ -20,8 +20,14 @@ import keras.backend as K
 from keras import backend as keras
 #from helper_functions  import *
 from helper_utilities  import *
+from helpers_dicom import DicomWrapper as dicomwrapper
 
 from loss_functions  import *
+
+import skimage
+from skimage import measure,feature
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
 
 #Fix the random seeds for numpy (this is for Keras) and for tensorflow backend to reduce the run-to-run variance
 from numpy.random import seed
@@ -35,7 +41,7 @@ print("\nSuccessfully imported packages for unet model!!!\n")
 
 
 class myUnet(object):
-    """ U-net model class  """
+    """U-net model class"""
     def __init__(self, model_name = "unet", nGPU=0, image_size = 256, batch_norm = False, dropout = True, optimizer = 'Adam', lr=.00001, loss_fn="dice_loss"):
         self.img_rows = image_size
         self.img_cols = image_size
@@ -45,6 +51,7 @@ class myUnet(object):
         self.file_source = None
         self.image_size = None
         self.source_type = None
+        self.method = None
         self.test_source_path = None
         self.image_4d_file = None
         self.image_source_file = None
@@ -86,6 +93,7 @@ class myUnet(object):
         self.metrics = [dice_coeff, 'binary_accuracy']
         self.epoch = 50 # gets updated later
         self.batch_size = 16 # gets updated later
+
         if self.batch_norm == False :
             self.build_unet()
         else :
@@ -96,10 +104,9 @@ class myUnet(object):
         loading the image files for training and testing
 
         Args:
-          train_data: training image files in 4d numpy array
-          test_data:  testing image files in 4d numpy array
-          contrast_normalize:  (Default value = False)
-
+          train_data: dictionary of training images and labels in 4d numpy array format
+          test_data: dictionary of test images and labels in 4d numpy array format
+          contrast_normalize: (Default value = False): Apply contrast normalization to the images
         Returns: none
 
         """
@@ -113,13 +120,12 @@ class myUnet(object):
 
     def get_crop_shape(self, src, dest):
         """
-        
+        Find the dimensions for cropping the source tensor to match the dimensions of destination tensor
 
         Args:
-          src: 
-          dest: 
-
-        Returns:
+          src: dimensions of the source tensor
+          dest: dimensions of destination tensor
+        Returns: cropping dimensions
 
         """
         # width, the 3rd dimension
@@ -144,6 +150,8 @@ class myUnet(object):
     
     def build_unet_15layers(self):
         """
+        Builds smaller version of U-net model with 15 convolution layers and 1.9M weights
+        
         Input shape
         4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
@@ -153,9 +161,7 @@ class myUnet(object):
         4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
 
-        Args:
-
-        Returns:
+        Returns: none
 
         """
         print('-'*30)
@@ -222,16 +228,7 @@ class myUnet(object):
         self.model = Model(input = inputs, output = conv7)
         self.parallel_model = ModelMGPU(self.model, self.nGPUs)
 
-        #self.model.compile(optimizer=RMSprop(lr=0.0001), loss=penalized_bce_loss(weight=0.08), metrics=['binary_accuracy'])
-        #self.model.compile(optimizer=RMSprop(lr=0.0001), loss=dice_loss, metrics=[dice_coeff])
 
-        #metrics=['accuracy'] calculates accuracy automatically from cost function. So using binary_crossentropy shows binary 
-        #accuracy, not categorical accuracy.Using categorical_crossentropy automatically switches to categorical accuracy
-        #One can get both categorical and binary accuracy by using metrics=['binary_accuracy', 'categorical_accuracy']
-        
-        #self.parallel_model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss, metrics = [dice_coeff])
-        #self.model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss, metrics = [dice_coeff])
-        
         print ("compiling the model")
         #self.model.compile(optimizer = self.optimizer, loss = self.loss_fn, metrics = self.metrics)
 
@@ -244,6 +241,8 @@ class myUnet(object):
         
     def build_unet_28layers(self):
         """
+        Builds U-Net modem with 28 convolution layers and 32M weights
+        
         Input shape
         4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
@@ -253,9 +252,7 @@ class myUnet(object):
         4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
 
-        Args:
-
-        Returns:
+        Returns: none
 
         """
         print('-'*30)
@@ -392,6 +389,8 @@ class myUnet(object):
  
     def build_unet(self):
         """
+        Builds U-Net model with 23 convolution layers with 31M weights
+        
         Input shape
         4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
@@ -401,9 +400,7 @@ class myUnet(object):
         4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
 
-        Args:
-
-        Returns:
+        Returns: none
 
         """
         print('-'*30)
@@ -484,15 +481,7 @@ class myUnet(object):
         self.model = Model(input = inputs, output = conv10)
         self.parallel_model = ModelMGPU(self.model, self.nGPUs)
 
-        #self.model.compile(optimizer=RMSprop(lr=0.0001), loss=penalized_bce_loss(weight=0.08), metrics=['binary_accuracy'])
-        #self.model.compile(optimizer=RMSprop(lr=0.0001), loss=dice_loss, metrics=[dice_coeff])
 
-        #metrics=['accuracy'] calculates accuracy automatically from cost function. So using binary_crossentropy shows binary 
-        #accuracy, not categorical accuracy.Using categorical_crossentropy automatically switches to categorical accuracy
-        #One can get both categorical and binary accuracy by using metrics=['binary_accuracy', 'categorical_accuracy']
-        
-        #self.parallel_model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss, metrics = [dice_coeff])
-        #self.model.compile(optimizer = Adam(lr = 1e-4), loss = dice_loss, metrics = [dice_coeff])
         
         print ("compiling the model")
         #self.model.compile(optimizer = self.optimizer, loss = self.loss_fn, metrics = self.metrics)
@@ -504,14 +493,13 @@ class myUnet(object):
         except ValueError:
             print ("Error invalid parameters to model compilation")
 
-        #self.model.compile(optimizer = Adam(lr = 1e-4), loss = bce_dice_loss, metrics = [dice_coeff])
 
-        #self.model.compile(optimizer = Adam(lr = 1e-4), loss = 'binary_crossentropy', metrics = [dice_coeff])
-        #self.model.compile(optimizer = Adam(lr = 1e-4), loss = my_bce_loss, metrics = ['binary_accuracy'])
-    
     def build_unet_batch_norm(self):
         
         """
+        Builds U-net model with 23 convolution layers and adds Batch normalization layer after each convolution layer
+        before applying activation funcition
+        
         Input shape
         4D tensor with shape: (samples, channels, rows, cols) if data_format='channels_first'
         or 4D tensor with shape: (samples, rows, cols, channels) if data_format='channels_last' (default format).
@@ -521,9 +509,7 @@ class myUnet(object):
         4D tensor with shape: (samples, new_rows, new_cols, filters) if data_format='channels_last'.
         rows and cols values might have changed due to padding.
 
-        Args:
-
-        Returns:
+        Returns: none
 
         """
         print('-'*30)
@@ -648,15 +634,13 @@ class myUnet(object):
         except ValueError:
             print ("Error invalid parameters to model compilation")
 
-
-    
     
     def load_pretrained_weights(self, model_file):
         """
         Loading the weights of the model
 
         Args:
-          model_file:  The model file created
+          model_file: The model file created
 
         Returns: none
 
@@ -668,7 +652,6 @@ class myUnet(object):
         #self.model.load_weights(self.model_file)
         print('-'*30)   
 
- 
         
     def predict(self, test_image_array, test_label_array ="none", augmentation=False):
         """
@@ -676,8 +659,8 @@ class myUnet(object):
 
         Args:
           test_image_array: Testing images in numpy array format
-          test_label_array:  (Default value = "none") Label images, or no label
-          augmentation:  (Default value = False), for unbalanced data
+          test_label_array: (Default value = "none") Label images, or no label
+          augmentation: (Default value = False), for unbalanced data
 
         Returns: none
 
@@ -753,10 +736,10 @@ class myUnet(object):
         Apply training and predicting with the parameters passed in
 
         Args:
-          model_path:  where the model file resides
-          batch_size:  (Default value = 4)
-          nb_epoch:  (Default value = 10)
-          augmentation:  (Default value = False)
+          model_path: where the model file resides
+          batch_size: (Default value = 4)
+          nb_epoch: (Default value = 10)
+          augmentation: (Default value = False)
 
         Returns: none
 
@@ -840,7 +823,7 @@ class myUnet(object):
         Keep a history of the model for evaluation
 
         Args:
-          mypath:  (Default value = "./"), model file path
+          mypath: (Default value = "./"), model file path
 
         Returns: none
 
@@ -933,3 +916,225 @@ class myUnet(object):
             json.dump(self.perf, file, indent=2)
 
         print('-'*30)
+
+    def get_ones(self):
+        """ Count up the 1s in predictions """
+
+        print ('l', len(self.predictions))
+        sourcefiles = []
+        sourcedict = dict()
+
+        with open(self.image_source_file, 'r') as sourceinput:
+            for i in sourceinput:
+                sourcefiles = i.strip().split(',')
+
+        print ('SF',len(sourcefiles))
+
+        for i in sourcefiles:
+            sourcedict[i] = {'ones':0} # init, may not have prediction
+
+        for i in range(len(self.predictions)):
+            zcount = np.count_nonzero(self.predictions[i])
+            sourcedict.update({sourcefiles[i]: {'ones':zcount}}) # save ones count for now
+
+        image_dir = os.path.dirname(self.image_one_file)
+
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
+
+        with open(self.image_one_file, 'w') as output:
+            output.write("{0}\n".format(json.dumps(sourcedict)))
+
+    def do_predict(self):
+        """ Apply prediction """
+        test_data = {}
+        test_data["images"] = self.image_4d_file
+        test_data["labels"] = self.test_labels
+
+        print('-'*30)
+        print ("Get Test images and labels...")
+        ts = None
+        tl = None
+
+        if self.test_labels == "none": 
+            ts = load_images(self.image_4d_file, normalize = self.batch_norm, contrast_normalize = self.contrast_normalize)
+            tl = self.test_labels
+        else:
+            ts, tl = load_images_and_labels(test_data, normalize = self.batch_norm, contrast_normalize = self.contrast_normalize)
+
+        print (ts.shape)
+        print('Run predictions...')
+        self.predict(test_image_array = ts, test_label_array = tl, augmentation = self.augmentation)
+        print('-'*30)
+        #save the predictions in the form of numpy array
+        pred_file = "{0}/{1}/{2}/{3}_{4}_{5}_predictions.npy".format(self.test_source_path,self.data_source,self.predict_path,self.file_source,self.patient,self.image_size)
+
+        pred_dir = os.path.dirname(pred_file)
+
+        if not os.path.exists(pred_dir):
+            os.makedirs(pred_dir)
+
+        np.save(pred_file, self.predictions)
+        self.pred_round = np.round(self.predictions)
+        pred_round_file = "{0}/{1}_{2}_{3}_pred_round.npy".format(pred_dir,self.file_source,self.patient,self.image_size)
+        np.save(pred_round_file, self.pred_round)
+        ts_norm_file = "{0}/{1}_{2}_{3}_ts_norm.npy".format(pred_dir,self.file_source,self.patient,self.image_size)
+        np.save(ts_norm_file, self.test_images)
+
+    def dump_and_sort(self):
+        """ Get the minimum and the maximum contours from each slice """
+        count = 0
+        origpath = '/masvol/data/{0}/{1}/{2}/study/'.format(self.file_source,self.source,str(self.patient))
+        new_path = '/masvol/output/{0}/volume/{1}/{2}/{3}_{4}_{5}.json'.format(self.file_source,self.method,self.volume_path,self.source,str(self.patient),self.image_size)
+        new_dir = os.path.dirname(new_path)
+
+        if not os.path.exists(new_dir):
+            os.makedirs(new_dir)
+
+        with open(self.image_one_file, 'r') as inputs:
+            jin = json.load(inputs)
+            slicedict = dict()
+
+            for i in sorted(jin):
+                count += 1
+                rootnode = i.split("/")
+                tmp=rootnode[-1].split('_')
+                sax = tmp[0] +'_'+ tmp[1]
+                frame = tmp[-1]
+
+                if sax in slicedict:
+                    slicedict[sax].update({frame: jin[i]})
+                else:
+                    slicedict.update({sax: {frame: jin[i]}})
+
+            min_max = self.get_min_max_slice(slicedict, origpath)
+            
+            with open(new_path, 'w') as output:
+                output.write("{0}\n".format(json.dumps(min_max)))
+
+    def get_min_max_slice(self, slicedict, origpath):
+        """
+        Figure out the min and max of each slice
+
+        Args:
+          slicedict:  slice info
+          origpath: original dcm numpy array file path
+
+        Returns: Identified min max info in dict
+
+        """
+        identified = {}
+
+        for i in slicedict: #i is sax
+            zmin = 9999999
+            zmax = 0
+            zminframe = ''
+            zmaxframe = ''
+            zcounts = {}
+
+            for j in slicedict[i]: #j is frame
+                zcount = slicedict[i][j]['ones']
+
+                if zcount in zcounts:
+                    if 'frame' in zcounts[zcount]:
+                        zcounts[zcount]['frame'].append(j)
+                    else:
+                        zcounts[zcount].update({'frame':[j]})
+                else:
+                    zcounts.update({zcount: {'frame':[j]}})
+                
+                if zcount < zmin:
+                    zmin = zcount
+                    zminframe = j
+
+                if zcount > zmax:
+                    zmax = zcount
+                    zmaxframe = j
+
+            maxpath = i+'/'+zmaxframe.strip('.npy')
+            minpath = i+'/'+zminframe.strip('.npy')
+            maxsl = None
+            minsl = None
+
+            try:
+                maxdw = dicomwrapper(origpath, maxpath)
+                maxsl = maxdw.slice_location()
+                maxst = maxdw.slice_thickness()
+            except:
+                print ('error max',origpath, maxpath)
+                maxsl = None
+                maxst = None
+ 
+            try:
+                mindw = dicomwrapper(origpath, minpath)
+                minsl = mindw.slice_location()
+                minst = mindw.slice_thickness()
+            except:
+                print ('error min',origpath, minpath)
+                minsl = None
+                minst = None
+
+            identified[i] = {'zmin':zmin,
+                             'zminframe': zminframe,
+                             'minSL': minsl,
+                             'minST': minst,
+                             'zmax': zmax,
+                             'zmaxframe': zmaxframe,
+                             'maxSL': maxsl,
+                             'maxST': maxst,
+                            'zcounts': zcounts}
+        #print (identified)
+        return identified
+
+    def fourD_add1(self):
+        """ Remove extra predicted contours """
+        #t=self.predictions
+        t=self.pred_round
+        found_dic={}
+        count=0
+        #print(t.shape[0])
+        x=0
+        for i in range(t.shape[0]):
+            #print(np.max(t[i,:,:,0]))
+            x=x+t[i,:,:,0]
+
+        print(np.max(x))
+        tgt=np.where(x==np.max(x))
+        #print('tgt',tgt)
+        x1=max(tgt[0])
+        y1=max(tgt[1])
+        #print('xy',x1,y1)
+        point = Point(x1, y1)    
+        #for t_im1 in self.predictions:
+        for t_im1 in self.pred_round:
+            found_dic={} 
+            t_im1 = t_im1[:, :, 0]        
+            dict_shape={}
+            cntrs=skimage.measure.find_contours(t_im1,0.1)  
+            found = []
+
+            if len(cntrs)>1:
+                try:
+                    for i in range(len(cntrs)):
+                        polygon = Polygon(cntrs[i])  
+                        if polygon.contains(point):
+                            found_dic[i]=1  
+                        else:
+                            found.append(i)
+                except ValueError:            
+                    print(len(cntrs[i]),cntrs[i])            
+
+            for j in found:
+                dict_shape[j]=cntrs[j].shape[0]
+
+                for k in dict_shape:
+                   x1=math.trunc(np.min(cntrs[k],axis=0)[0])
+                   y1=math.trunc(np.min(cntrs[k],axis=0)[1])
+                   x2=math.trunc(np.max(cntrs[k],axis=0)[0])
+                   y2=math.trunc(np.max(cntrs[k],axis=0)[1])
+                   t_im1[x1:x2+1, y1:y2+1]=0
+        
+        self.predictions = self.pred_round # override for the subsequent functions
+
+        pred_file_CR = "{0}/{1}/{2}/{3}_{4}_{5}_CR4d_predictions_cleaned.npy".format(self.test_source_path,self.data_source,self.predict_path,self.file_source,self.patient,self.image_size)
+        np.save(pred_file_CR, self.predictions)                     
