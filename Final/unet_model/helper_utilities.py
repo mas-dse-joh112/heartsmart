@@ -606,7 +606,16 @@ def find_outliers_in_prediction(y_pred_f):
 
 
 def dump_and_sort(image_one_file, origpath, newpath):
-    """ Get the minimum and the maximum contours from each slice """
+    """ Get the minimum and the maximum contours from each slice
+    Args:
+      image_one_file: predicted ones count in json format
+      origpath: original dcm numpy array file path
+      newpath: output path of the predicted result file
+        
+    Returns:
+       None.
+    
+    """
     count = 0
     new_dir = os.path.dirname(newpath)
 
@@ -708,7 +717,65 @@ def get_min_max_slice(slicedict, origpath):
 
     return identified
 
+ 
+def combine_acdc_sunnybrook_data(unet_train_dir, acdc_source, sb_source, image_size):
+    """
+    Combining ACDC and sunnybrook data
+
+    Args:
+      slicedict:  slice info
+      origpath: original dcm numpy array file path
+
+    Returns: Identified min max info in dict
+
+    """
+
+    train_images = "_1_3_{0}_train_images.npy".format(image_size)
+    train_labels = "_1_3_{0}_train_labels.npy".format(image_size)
+
+    test_images = "_1_3_{0}_test_images.npy".format(image_size)
+    test_labels = "_1_3_{0}_test_labels.npy".format(image_size)
+
+    acdc_train_data = {}
+    acdc_train_data["images"] = unet_train_dir + acdc_source + train_images
+    acdc_train_data["labels"] = unet_train_dir + acdc_source + train_labels
+
+    acdc_train_img, acdc_train_lbl = load_images_and_labels_no_preproc(acdc_train_data)
+
+    acdc_test_data = {}
+    acdc_test_data["images"] = unet_train_dir + acdc_source + test_images
+    acdc_test_data["labels"] = unet_train_dir + acdc_source + test_labels
+
+    acdc_test_img, acdc_test_lbl = load_images_and_labels_no_preproc(acdc_test_data)
+
+    sb_train_data = {}
+    sb_train_data["images"] = unet_train_dir + sb_source + train_images
+    sb_train_data["labels"] = unet_train_dir + sb_source + train_labels
+    sb_train_img, sb_train_lbl = load_images_and_labels_no_preproc(sb_train_data)
+
+    sb_test_data = {}
+    sb_test_data["images"] = unet_train_dir + sb_source + test_images
+    sb_test_data["labels"] = unet_train_dir + sb_source + test_labels
+    sb_test_img, sb_test_lbl = load_images_and_labels_no_preproc(sb_test_data)
+
+    combined_train_img = np.concatenate((acdc_train_img, sb_train_img), axis=0)
+    combined_train_lbl = np.concatenate((acdc_train_lbl, sb_train_lbl), axis=0)
+
+    combined_test_img = np.concatenate((acdc_test_img, sb_test_img), axis=0)
+    combined_test_lbl = np.concatenate((acdc_test_lbl, sb_test_lbl), axis=0)
+    print (combined_train_img.shape, combined_train_lbl.shape,combined_test_img.shape,combined_test_lbl.shape)
+    print ("Saving combined files.......")
+
+    tr_img_file = unet_train_dir + "combined_{0}".format(train_images)
+    tr_lbl_file = unet_train_dir + "combined_{0}".format(train_labels)
+    tst_img_file = unet_train_dir + "combined_{0}".format(test_images)
+    tst_lbl_file = unet_train_dir + "combined_{0}".format(test_labels)
+
+    np.save(tr_img_file, combined_train_img)
+    np.save(tr_lbl_file, combined_train_lbl)
+    np.save(tst_img_file, combined_test_img)
+    np.save(tst_lbl_file, combined_test_lbl)
     
+
 if __name__ == "__main__":
-    file_p = "/masvol/heartsmart/unet_model/data/baseline/sunnybrook_1_3_256_learning_history.json"
-    plot_accuracy_and_loss(file_p)
+    dummy = 1
