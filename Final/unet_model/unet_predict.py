@@ -89,9 +89,17 @@ def predict_with_pretrained_weights(args):
     topdir = "{0}/{1}".format(myunet.test_source_path, myunet.data_source)
 
     for i in glob.glob(inputpath):
+
         nodes = i.split('/')
         myunet.patient = nodes[-1]
         print ('|'+myunet.patient+'|')
+
+        if len(args.patient_list) > 0:
+            patient = int(myunet.patient)
+
+            if patient not in args.patient_list:
+                continue
+
         # test_image_file: image files in 4d numpy array for testing, image_4d_file
         myunet.image_4d_file = "{0}/data/{1}_{2}_{3}_train.npy".format(topdir, myunet.file_source, myunet.patient, myunet.image_size)
         print ('4d',myunet.image_4d_file)
@@ -102,9 +110,11 @@ def predict_with_pretrained_weights(args):
         myunet.test_labels = "none"
         #print ('io',myunet.image_one_file)
         pred_file = "{0}/{1}/{2}_{3}_{4}_predictions.npy".format(topdir,myunet.predict_path,myunet.file_source,myunet.patient,myunet.image_size)
+        print ('pred_file', pred_file)
         myunet.do_predict()
 
         pred_dir = os.path.dirname(pred_file)
+        print ('pred_dir', pred_dir)
 
         if not os.path.exists(pred_dir):
             os.makedirs(pred_dir)
@@ -117,8 +127,19 @@ def predict_with_pretrained_weights(args):
         ts_norm_file = "{0}/{1}_{2}_{3}_ts_norm.npy".format(pred_dir,myunet.file_source,myunet.patient,myunet.image_size)
         np.save(ts_norm_file, myunet.test_images)
 
-        myunet.fourD_add1() 
-        myunet.get_ones()
+        predictions = remove_contour(myunet.pred_round)  # remove on rounded
+
+        pred_file_CR = "{0}/{1}_{2}_{3}_CR4d_predictions_cleaned.npy".format(pred_dir, myunet.file_source, myunet.patient, myunet.image_size)
+        np.save(pred_file_CR, predictions)                     
+
+        sourcedict = get_ones(predictions, myunet.image_source_file)
+        image_dir = os.path.dirname(myunet.image_one_file)
+
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
+
+        with open(myunet.image_one_file, 'w') as output:
+            output.write("{0}\n".format(json.dumps(sourcedict)))
 
         origpath = '/masvol/data/{0}/{1}/{2}/study/'.format(myunet.file_source,myunet.source,str(myunet.patient))
         newpath = '/masvol/output/{0}/volume/{1}/{2}/{3}_{4}_{5}.json'.format(myunet.file_source,myunet.method,myunet.volume_path,myunet.source,str(myunet.patient),myunet.image_size)
@@ -149,7 +170,7 @@ if __name__ == "__main__":
     # image_size: uniform image size
     # augmentation:  (Default value = False)
     # contrast_normalization: (Default value = False)
-    arg_list = ['model_name','image_size','source','source_type','method','Type','hdf5_path','predict_path','volume_path','augmentation','contrast_normalization','batch_normalization','GPU_CLUSTER','GPUs','per_process_gpu_memory_fraction','file_source','dropout']
+    arg_list = ['model_name','image_size','source','source_type','method','Type','hdf5_path','predict_path','volume_path','augmentation','contrast_normalization','batch_normalization','GPU_CLUSTER','GPUs','per_process_gpu_memory_fraction','file_source','dropout','patient_list']
 
     dir_args = dir(args)
 
