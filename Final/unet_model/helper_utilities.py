@@ -872,6 +872,7 @@ def get_ones(predictions, image_source_file):
     return sourcedict
 
 def remove_ctrsAll(arr):
+    """ Another version of contour removal method """
     t=arr
     found_dic={}
     count=0
@@ -968,6 +969,8 @@ def remove_ctrsAll(arr):
     return arr        
 
 def make_dir(dirpath):
+    """ Create the directory of the file path passed in """
+
     dirname = os.path.dirname(dirpath)
     print ('dirname', dirname)
 
@@ -975,6 +978,8 @@ def make_dir(dirpath):
         os.makedirs(dirname)
 
 def do_ensamble_vote(models, base_dir, out_dir, patient):
+    """ Apply ensamble based on the majority vote method """
+
     print ('models', models)
     model_num = len(models)
     denom = model_num*1.0
@@ -1015,6 +1020,8 @@ def do_ensamble_vote(models, base_dir, out_dir, patient):
     return ensamble_pred
 
 def do_ensamble_average(models, base_dir, out_dir, patient):
+    """ Apply ensamble based on the average method """
+
     print ('models', models)
     model_num = len(models)
     denom = model_num*1.0
@@ -1056,6 +1063,8 @@ def do_ensamble_average(models, base_dir, out_dir, patient):
     return ensamble_round
 
 def post_processing(base_dir, source, input_dir, volume_dir, ensampath, patient, image_size, predictions):
+    """ After prediction stage, apply ensamble, contour removal, get ones, and sort out min/max frames in each slice """
+
     #base_dir = '/masvol/output/dsb/norm/1/3/unet_model_'
     #source = 'train'
     #input_dir = '/masvol/data/dsb'
@@ -1081,6 +1090,8 @@ def post_processing(base_dir, source, input_dir, volume_dir, ensampath, patient,
     dump_and_sort(image_one_file, origpath, newpath)
 
 def do_ensamble(args):
+    """ Apply ensamble based on the config file supplied """
+
     input_dir = args.input_dir
     base_dir = args.base_dir
     sources = args.sources
