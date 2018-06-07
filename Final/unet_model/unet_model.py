@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+""" U-net class """
+
 import cv2 
 import re, sys
 import fnmatch, shutil, subprocess
@@ -20,14 +22,8 @@ import keras.backend as K
 from keras import backend as keras
 #from helper_functions  import *
 from helper_utilities  import *
-from helpers_dicom import DicomWrapper as dicomwrapper
 
 from loss_functions  import *
-
-import skimage
-from skimage import measure,feature
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
 
 #Fix the random seeds for numpy (this is for Keras) and for tensorflow backend to reduce the run-to-run variance
 from numpy.random import seed
@@ -917,34 +913,6 @@ class myUnet(object):
 
         print('-'*30)
 
-    def get_ones(self):
-        """ Count up the 1s in predictions """
-
-        print ('l', len(self.predictions))
-        sourcefiles = []
-        sourcedict = dict()
-
-        with open(self.image_source_file, 'r') as sourceinput:
-            for i in sourceinput:
-                sourcefiles = i.strip().split(',')
-
-        print ('SF',len(sourcefiles))
-
-        for i in sourcefiles:
-            sourcedict[i] = {'ones':0} # init, may not have prediction
-
-        for i in range(len(self.predictions)):
-            zcount = np.count_nonzero(self.predictions[i])
-            sourcedict.update({sourcefiles[i]: {'ones':zcount}}) # save ones count for now
-
-        image_dir = os.path.dirname(self.image_one_file)
-
-        if not os.path.exists(image_dir):
-            os.makedirs(image_dir)
-
-        with open(self.image_one_file, 'w') as output:
-            output.write("{0}\n".format(json.dumps(sourcedict)))
-
     def do_predict(self):
         """ Apply prediction """
         test_data = {}
@@ -967,174 +935,4 @@ class myUnet(object):
         self.predict(test_image_array = ts, test_label_array = tl, augmentation = self.augmentation)
         print('-'*30)
         #save the predictions in the form of numpy array
-        pred_file = "{0}/{1}/{2}/{3}_{4}_{5}_predictions.npy".format(self.test_source_path,self.data_source,self.predict_path,self.file_source,self.patient,self.image_size)
 
-        pred_dir = os.path.dirname(pred_file)
-
-        if not os.path.exists(pred_dir):
-            os.makedirs(pred_dir)
-
-        np.save(pred_file, self.predictions)
-        self.pred_round = np.round(self.predictions)
-        pred_round_file = "{0}/{1}_{2}_{3}_pred_round.npy".format(pred_dir,self.file_source,self.patient,self.image_size)
-        np.save(pred_round_file, self.pred_round)
-        ts_norm_file = "{0}/{1}_{2}_{3}_ts_norm.npy".format(pred_dir,self.file_source,self.patient,self.image_size)
-        np.save(ts_norm_file, self.test_images)
-
-    def dump_and_sort(self):
-        """ Get the minimum and the maximum contours from each slice """
-        count = 0
-        origpath = '/masvol/data/{0}/{1}/{2}/study/'.format(self.file_source,self.source,str(self.patient))
-        new_path = '/masvol/output/{0}/volume/{1}/{2}/{3}_{4}_{5}.json'.format(self.file_source,self.method,self.volume_path,self.source,str(self.patient),self.image_size)
-        new_dir = os.path.dirname(new_path)
-
-        if not os.path.exists(new_dir):
-            os.makedirs(new_dir)
-
-        with open(self.image_one_file, 'r') as inputs:
-            jin = json.load(inputs)
-            slicedict = dict()
-
-            for i in sorted(jin):
-                count += 1
-                rootnode = i.split("/")
-                tmp=rootnode[-1].split('_')
-                sax = tmp[0] +'_'+ tmp[1]
-                frame = tmp[-1]
-
-                if sax in slicedict:
-                    slicedict[sax].update({frame: jin[i]})
-                else:
-                    slicedict.update({sax: {frame: jin[i]}})
-
-            min_max = self.get_min_max_slice(slicedict, origpath)
-            
-            with open(new_path, 'w') as output:
-                output.write("{0}\n".format(json.dumps(min_max)))
-
-    def get_min_max_slice(self, slicedict, origpath):
-        """
-        Figure out the min and max of each slice
-
-        Args:
-          slicedict:  slice info
-          origpath: original dcm numpy array file path
-
-        Returns: Identified min max info in dict
-
-        """
-        identified = {}
-
-        for i in slicedict: #i is sax
-            zmin = 9999999
-            zmax = 0
-            zminframe = ''
-            zmaxframe = ''
-            zcounts = {}
-
-            for j in slicedict[i]: #j is frame
-                zcount = slicedict[i][j]['ones']
-
-                if zcount in zcounts:
-                    if 'frame' in zcounts[zcount]:
-                        zcounts[zcount]['frame'].append(j)
-                    else:
-                        zcounts[zcount].update({'frame':[j]})
-                else:
-                    zcounts.update({zcount: {'frame':[j]}})
-                
-                if zcount < zmin:
-                    zmin = zcount
-                    zminframe = j
-
-                if zcount > zmax:
-                    zmax = zcount
-                    zmaxframe = j
-
-            maxpath = i+'/'+zmaxframe.strip('.npy')
-            minpath = i+'/'+zminframe.strip('.npy')
-            maxsl = None
-            minsl = None
-
-            try:
-                maxdw = dicomwrapper(origpath, maxpath)
-                maxsl = maxdw.slice_location()
-                maxst = maxdw.slice_thickness()
-            except:
-                print ('error max',origpath, maxpath)
-                maxsl = None
-                maxst = None
- 
-            try:
-                mindw = dicomwrapper(origpath, minpath)
-                minsl = mindw.slice_location()
-                minst = mindw.slice_thickness()
-            except:
-                print ('error min',origpath, minpath)
-                minsl = None
-                minst = None
-
-            identified[i] = {'zmin':zmin,
-                             'zminframe': zminframe,
-                             'minSL': minsl,
-                             'minST': minst,
-                             'zmax': zmax,
-                             'zmaxframe': zmaxframe,
-                             'maxSL': maxsl,
-                             'maxST': maxst,
-                            'zcounts': zcounts}
-        #print (identified)
-        return identified
-
-    def fourD_add1(self):
-        """ Remove extra predicted contours """
-        #t=self.predictions
-        t=self.pred_round
-        found_dic={}
-        count=0
-        #print(t.shape[0])
-        x=0
-        for i in range(t.shape[0]):
-            #print(np.max(t[i,:,:,0]))
-            x=x+t[i,:,:,0]
-
-        print(np.max(x))
-        tgt=np.where(x==np.max(x))
-        #print('tgt',tgt)
-        x1=max(tgt[0])
-        y1=max(tgt[1])
-        #print('xy',x1,y1)
-        point = Point(x1, y1)    
-        #for t_im1 in self.predictions:
-        for t_im1 in self.pred_round:
-            found_dic={} 
-            t_im1 = t_im1[:, :, 0]        
-            dict_shape={}
-            cntrs=skimage.measure.find_contours(t_im1,0.1)  
-            found = []
-
-            if len(cntrs)>1:
-                try:
-                    for i in range(len(cntrs)):
-                        polygon = Polygon(cntrs[i])  
-                        if polygon.contains(point):
-                            found_dic[i]=1  
-                        else:
-                            found.append(i)
-                except ValueError:            
-                    print(len(cntrs[i]),cntrs[i])            
-
-            for j in found:
-                dict_shape[j]=cntrs[j].shape[0]
-
-                for k in dict_shape:
-                   x1=math.trunc(np.min(cntrs[k],axis=0)[0])
-                   y1=math.trunc(np.min(cntrs[k],axis=0)[1])
-                   x2=math.trunc(np.max(cntrs[k],axis=0)[0])
-                   y2=math.trunc(np.max(cntrs[k],axis=0)[1])
-                   t_im1[x1:x2+1, y1:y2+1]=0
-        
-        self.predictions = self.pred_round # override for the subsequent functions
-
-        pred_file_CR = "{0}/{1}/{2}/{3}_{4}_{5}_CR4d_predictions_cleaned.npy".format(self.test_source_path,self.data_source,self.predict_path,self.file_source,self.patient,self.image_size)
-        np.save(pred_file_CR, self.predictions)                     
