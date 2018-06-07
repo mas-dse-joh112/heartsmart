@@ -1,11 +1,22 @@
 #!/usr/bin/env python
 
 
+""" Ensamble process, read in a config file, i.e. post_process_config and to combine prediction results accordingly before the contour removal process """
+
 import glob
 from helper_utilities import *
 
 
 def do_post_processing(args):
+    """
+    Combine predictions to either apply average or majority vote to improve result
+
+    Args:
+      args: args passed in from the config file
+
+    Returns: none
+
+    """
     arg_list = ['input_dir','base_dir','output_dir','systolic_path','diastolic_path','sources','volume_dir','diastolic_models','systolic_models','ensamble_type']
 
     dir_args = dir(args)
