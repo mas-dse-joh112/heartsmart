@@ -2,7 +2,7 @@
 
 """Configuration variables for preprocessing"""
 
-methods = ['1','2','3']
+methods = ['1','2']
 types = ['0','1','2','3']
 paths = ['train','validate','test','challenge_online','challenge_validation','challenge_training','niftidata','challenge']
 dsbpaths = ['train','validate','test']
