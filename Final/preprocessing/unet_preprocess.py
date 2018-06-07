@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+""" Preparing and splitting the source files in 4d array format for training and testing """
 
 import preproc
 import re, sys
@@ -50,24 +51,24 @@ TRAIN_TEST_SPLIT_RATIO = 0.1  # train/test split ratio
 
 def shrink_case(case):
     """
-    
+    Formatting the patient id
 
     Args:
-      case: 
+      case:  Patient id
 
-    Returns:
+    Returns: The actual id
 
     """
     toks = case.split("-")
     
     def shrink_if_number(x):
         """
-        
+        Formatting the patient id
 
         Args:
-          x: 
+          x: patient id
 
-        Returns:
+        Returns: patient id in the format we want
 
         """
         try:
@@ -96,14 +97,15 @@ class Contour(object):
 
 def crop_center(img,cropx,cropy):
     """
-    
+    Function to crop the image outward from the center. 
 
     Args:
-      img: 
-      cropx: 
-      cropy: 
+      img: Numpy image array
+      cropx: Int value by which to crop the image in the x direction
+      cropy: Int value by which to crop the image in the y direction
 
     Returns:
+      Numpy image array with the desired crop size (cropx x cropy)
 
     """
     y,x = img.shape
@@ -113,14 +115,15 @@ def crop_center(img,cropx,cropy):
 
 def load_contour(contour, img_path, crop_size):
     """
-    
+    Function to load the sunnybrook or acdc contours and images. method1.get_square_crop is called in order to ensure the image and label is to the correct size. 
 
     Args:
       contour: 
-      img_path: 
-      crop_size: 
+      img_path: String path of the numpy image array that is associated with the contour 
+      crop_size: Size to crop the image to in the x and y direction
 
-    Returns:
+    Returns: image array, label array and the file path
+      
 
     """
     filename = None
@@ -154,12 +157,13 @@ def load_contour(contour, img_path, crop_size):
    
 def get_all_contours(contour_path):
     """
-    
+    Function to get all of the acdc or sunnybrook contour files and shuffles them.
 
     Args:
-      contour_path: 
+      contour_path: String path location of the sunnybrook contours
 
     Returns:
+      List of the shuffled contour paths
 
     """
     contours = None
@@ -188,14 +192,15 @@ def get_all_contours(contour_path):
 
 def get_contours_and_images(contours, img_path, crop_size):
     """
-    
+    Function to get the contour and image files
 
     Args:
-      contours: 
-      img_path: 
-      crop_size: 
+      contours: Contour files
+      img_path: Path of where the images are located
+      crop_size: Desired size to crop the image and contour to
 
     Returns:
+      Numpy images and label arrays with the desired size
 
     """
     counter_img = 0
@@ -241,13 +246,13 @@ def get_contours_and_images(contours, img_path, crop_size):
 
 def extract_training_data(crop_size=256): 
     """
-    
+    Function to split the dataset into training and test data
 
     Args:
-      crop_size:  (Default value = 256)
+      crop_size:  (Default value = 256) Size of the images
 
     Returns:
-
+      A set of 4-D numpy train images, numpy train labels, numpy test images, and numpy test labels. 
     """
     SPLIT_RATIO = TRAIN_TEST_SPLIT_RATIO  # train/test split ratio
     print("Mapping ground truth contours to images...")
@@ -277,17 +282,17 @@ def extract_training_data(crop_size=256):
 
 def create_training_data(imgs, lbls, save_file_path, file_prefix, image_size):
     """
-    
+    Function to create the 4-D image and label arrays
 
     Args:
-      imgs: 
-      lbls: 
-      save_file_path: 
-      file_prefix: 
-      image_size: 
+      imgs: Numpy image arrays
+      lbls: Numpy contour arrays
+      save_file_path: Path of where to save the files
+      file_prefix: prefix of the saved path 
+      image_size: Size of the desired images
 
     Returns:
-
+      Numpy 4-D image and label arrays
     """
     rows = image_size
     cols = image_size
