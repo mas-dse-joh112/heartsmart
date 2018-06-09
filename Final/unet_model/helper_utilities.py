@@ -25,24 +25,33 @@ perf_keys = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accu
              "f1_score", "true_positive", "false_positive","true_negative","false_negative", "zero_contour_labels", \
              "zero_contour_pred", "missed_pred_lt_05", "missed_pred_gt_25", "missed_pred_gt_50", "missed_pred_eq_100"]
 
+perf_keys2 = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accuracy",  \
+              "dice_coef", "jaccard_coef", "dice_coef2", "jaccard_coef2","precision","recall", \
+             "f1_score", "true_positive", "false_positive","true_negative","false_negative", "zero_contour_labels", \
+             "zero_contour_pred", "dice_coef_eq_100", "dice_coef_gt_98", "dice_coef_lt_10", "dice_coef_eq_0"]
+
 perf_keys_ext=["tr_model_name","tr_nGPUs", "tr_loss_fn","tr_dropout", "tr_optimizer","tr_lrrate","tr_batchsize","tr_epoch", \
                "tr_size","tr_contrast_norm","tr_augmentation","tr_augment_count","tr_augment_shift_h", "tr_augment_shift_w", \
                "tr_augment_rotation","tr_augment_zoom","eval_loss","eval_dice_coeff","eval_binary_accuracy","logloss", \
                "accuracy","weighted_logloss", "weighted_accuracy","precision","recall","f1_score", "true_positive", \
-               "true_negative", "false_positive", "false_negative"]
+             "true_negative", "false_positive", "false_negative"]
 
 perf_keys_ext2=["eval_loss","eval_dice_coeff","eval_binary_accuracy","logloss", \
-                "accuracy","precision","recall","f1_score", "true_positive", \
-                "true_negative", "false_positive", "false_negative"]
+               "accuracy","precision","recall","f1_score", "true_positive", \
+             "true_negative", "false_positive", "false_negative"]
 
 def get_perf_keys():
     return perf_keys
+
+def get_perf_keys2():
+    return perf_keys2
 
 def get_perf_keys_ext():
     return perf_keys_ext
 
 def get_perf_keys_ext2():
     return perf_keys_ext2
+
 
 def load_images_and_labels(data, normalize= True, zscore_normalize = False, contrast_normalize= False, cliplimit=2, tilesize=8 ):
     """Function to load images and labels from .npy file into a 4d numpy array
@@ -485,6 +494,8 @@ def compute_roc_auc(y_true_f, y_pred_f):
     return fpr, tpr, threshold, roc_auc
     
 
+
+    
 def compute_performance_statistics (y_true_f, y_pred_f):
     """Function to compute performanc statistics using labels and prections.       
 
@@ -521,7 +532,8 @@ def compute_performance_statistics (y_true_f, y_pred_f):
     smooth = 1.
     intersection = np.sum(y_true * y_pred)
     dice_coef = (2. * intersection + smooth) / (np.sum(y_true) + np.sum(y_pred) + smooth)
-
+    jaccard_coef = float(intersection + smooth) / float(np.sum(y_true) + np.sum(y_pred)-intersection + smooth)
+    
     score = log_loss (y_true, y_pred)
     score2 = log_loss (y_true, y_pred, sample_weight = sample_weights)
     acc = math.exp(-score)
@@ -546,7 +558,7 @@ def compute_performance_statistics (y_true_f, y_pred_f):
 #     keys = ["samples", "logloss", "weighted_logloss","accuracy", "weighted_accuracy", "dice_coef", "precision","recall", "f1_score", "true_positive", \
 #            "false_positive","true_negative","false_negative", "zero_contour_labels", "zero_contour_pred", \
 #            "missed_pred_lt_05", "missed_pred_gt_25", "missed_pred_gt_50", "missed_pred_eq_100"]
-    perf = OrderedDict.fromkeys(perf_keys)
+    perf = OrderedDict.fromkeys(perf_keys2)
     
     perf["logloss"] = score
     perf["weighted_logloss"] = score2
@@ -554,6 +566,7 @@ def compute_performance_statistics (y_true_f, y_pred_f):
     perf["weighted_accuracy"] = acc2
 
     perf["dice_coef"] = dice_coef
+    perf["jaccard_coef"] = jaccard_coef
     perf["precision"] = prec
     perf["recall"] = rec
     perf["f1_score"] = f1
@@ -561,6 +574,17 @@ def compute_performance_statistics (y_true_f, y_pred_f):
     perf["false_positive"] = int(cm[0][1])
     perf["true_negative"] = int(cm[0][0])
     perf["false_negative"] = int(cm[1][0])
+    
+    
+    y_true = y_true_o.flatten()
+    y_pred = np.round(y_pred_o)
+    y_pred = y_pred.flatten()
+    
+    intersection = np.sum(y_true * y_pred)
+    dice_coef2 = (2. * intersection + smooth) / (np.sum(y_true) + np.sum(y_pred) + smooth)
+    jaccard_coef2 = float(intersection + smooth) / float(np.sum(y_true) + np.sum(y_pred)-intersection + smooth)
+    perf["dice_coef2"] = dice_coef2
+    perf["jaccard_coef2"] = jaccard_coef2
     
     y_true = y_true_o
     y_pred = np.round(y_pred_o)
@@ -575,20 +599,31 @@ def compute_performance_statistics (y_true_f, y_pred_f):
     perf["zero_contour_labels"] = len(lb0)
     perf["zero_contour_pred"] = len(pd0)
     
-    pix_diff = (abs(y_true_sum - y_pred_sum))/(y_true_sum + epsilon)
-    px1 = np.where(pix_diff <.0005)
-    px1 = list(px1[0])
-    px25 = np.where(pix_diff>.25)
-    px25 = list(px25[0])
-    px50 = np.where(pix_diff>.5)
-    px50 = list(px50[0])
-    px100 = np.where(pix_diff >= 1.0) 
-    px100 = list(px100[0])
-    perf["missed_pred_lt_05"] = len(px1)
-    perf["missed_pred_gt_25"] = len(px25)
-    perf["missed_pred_gt_50"] = len(px50)
-    perf["missed_pred_eq_100"] = len(px100)
+    img_d = []
+    img_j = []
+    y_predr = np.round(y_pred_o)
+    for i in range(samples) :
+        smooth = .01
+        y_truex = y_true_o[i].flatten()
+        y_predx = y_predr[i].flatten()
+        intersection = np.sum(y_truex * y_predx)
+        dice_coefx = (2. * intersection + smooth) / (np.sum(y_truex) + np.sum(y_predx) + smooth)
+        jaccard_coefx = float(intersection + smooth) / float(np.sum(y_truex) + np.sum(y_predx)-intersection + smooth)
+        dice_coefx = np.around(dice_coefx, decimals=3)
+        jaccard_coefx = np.around(jaccard_coefx, decimals=3)
+        img_d.append(dice_coefx)
+        img_j.append(jaccard_coefx)
+    px100 = [i for i,v in enumerate(img_d) if v ==1.0]
+    px98 = [i for i,v in enumerate(img_d) if v > .98]
+    px10 = [i for i,v in enumerate(img_d) if v < .1]
+    px0 = [i for i,v in enumerate(img_d) if v == 0]
+    perf["dice_coef_eq_100"] = len(px100)
+    perf["dice_coef_gt_98"] = len(px98)
+    perf["dice_coef_lt_10"] = len(px10)
+    perf["dice_coef_eq_0"] = len(px0)
     return perf
+
+
 
 
     
