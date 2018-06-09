@@ -172,6 +172,7 @@ def show_performance_statistics (y_true_f, y_pred_f):
 
 
 
+
 def find_outliers(y_true_f, y_pred_f):
     """Function find outliers such as labels with zero contours, using labels and prections.       
 
@@ -207,31 +208,51 @@ def find_outliers(y_true_f, y_pred_f):
         ypr.append(y_pred_s[idx,:,:,:].max())
     print ("max-sigmoid values with zero contours", ypr)
 
-    epsilon = 1e-7 #avoid divide-by-zero errors
-    pix_diff = (abs(y_true_sum - y_pred_sum))/(y_true_sum + epsilon)
-    print (pix_diff.shape)
-    px1 = np.where(pix_diff <.0005)
-    px1 = list(px1[0])
-    px25 = np.where(pix_diff>.25)
-    px25 = list(px25[0])
-    px50 = np.where(pix_diff>.5)
-    px50 = list(px50[0])
-    px100 = np.where(pix_diff >= 1.0) 
-    px100 = list(px100[0])
+    img_d = []
+    img_j = []
+    for i in range(samples) :
+        smooth = 0.001
+        y_truex = y_true[i].flatten()
+        y_predx = y_pred[i].flatten()
+        intersection = np.sum(y_truex * y_predx)
+        dice_coefx = (2. * intersection + smooth) / (np.sum(y_truex) + np.sum(y_predx) + smooth)
+        jaccard_coefx = float(intersection + smooth) / float(np.sum(y_truex) + np.sum(y_predx)-intersection + smooth)
+        dice_coefx = np.around(dice_coefx, decimals=3)
+        jaccard_coefx = np.around(jaccard_coefx, decimals=3)
+        img_d.append(dice_coefx)
+        img_j.append(jaccard_coefx)
+    
+
+    
+    plt.hist(img_d, bins=[i/20 for i in range(20)])
+    plt.grid()
+    plt.title('Distribution dice coef')
+    plt.xlabel('dice_coef')
+    plt.ylabel('Sample count')
+    plt.show()
+    
+    plt.hist(img_j, bins=[i/20 for i in range(20)])
+    plt.grid()
+    plt.title('Distribution of jaccard coef (IoU)')
+    plt.xlabel('jaccard_coef (IoU)')
+    plt.ylabel('Sample count')
+    plt.show()
+    
+    
+    px0 = [i for i,v in enumerate(img_d) if v ==1.0]
+    px1 = [i for i,v in enumerate(img_d) if v > .98]
+    px25 = [i for i,v in enumerate(img_d) if v <= .7 and v >.5]
+    px50 = [i for i,v in enumerate(img_d) if v < .1]
+    px100 = [i for i,v in enumerate(img_d) if v == 0]
     print('-'*30)
     print ("Statistics on missed predictions of contour pixels (white pixels)")
     print('-'*30)
-    print ("Sample Index where missed predictions <.05%",len(px1), px1)
-    print ("Sample Index where missed predictions >25%",len(px25), px25)
-    print ("Sample Index where missed predictions >50%", len(px50),px50)
-    print ("Sample Index where missed predictions >= 100%", len(px100),px100)
-    #plt.hist(pix_diff, bins='auto')
-    plt.hist(pix_diff, bins=[i/20 for i in range(20)])
-    plt.grid()
-    plt.title('Distribution of missed predictions')
-    plt.xlabel('Missed prediction% (missed_p/true_p)')
-    plt.ylabel('Sample count')
-    plt.show()
+    print ("max, min", min(img_d), max(img_d))
+    print ("Sample Index where dice coef = 100%",len(px0), px0)
+    print ("Sample Index where dice coef >98%",len(px1), px1)
+    print ("Sample Index where dice coef 50%-70%",len(px25), px25)
+    print ("Sample Index where dice coef <10%", len(px50),px50)
+    print ("Sample Index where dice coef = 0%", len(px100),px100)
     print('-'*30)
     print('-'*30)
 
@@ -401,7 +422,61 @@ def display_images_predictions2 (image_array, pred_array,  num_images=4, image_l
         plt.title('Overlay'), plt.xticks([]), plt.yticks([])
         plt.show()
         
+
+
+       
+def  display_images_predictions3(image_array, pred_array1, pred_array2,  num_images=4, image_list=False, random_images=False, overlay = True):
+    """Function to display images,predictions and overlays of images and predictions.       
+
+    Args:
+        image_file(:string):  image file (.npy) with full path.
+        pred_file(:string):  prediction file (.npy) with full path.
+        image_list (:list, optional) : list images to be displayed, if this field is present then num_images and random_images will be ignored.
+        num_images (:int, optional) : number of images to be displayed, default is 4.
+        random_images (:boolean, optional) : if True pick images randomly, else display first n images, default is False.
+        
+    Returns:
+       None.
     
+    Note:
+        prection file should have the sigmoid outputs (not the rounded values).
+    """
+    ts = image_array
+    pred1 = pred_array1
+    pred2 = pred_array2
+    samples, x, y, z = ts.shape
+    print ("samples, max, min ", samples, pred1.max(), pred1.min())
+    pred1r = np.round(pred1)
+    pred2r = np.round(pred2)
+
+    display_list = []
+    if image_list == False:
+        if random_images == True:
+            display_list = random.sample(range(0, samples), num_images)
+        else :
+            display_list = [i for i in range (num_images)]
+    else:
+        display_list = image_list
+
+    for i in display_list:
+        f, axs = plt.subplots(1,3,figsize=(15,15))
+        plt.subplot(131),plt.imshow(ts[i].reshape(x, y))
+        plt.title('Image '+str(i)), plt.xticks([]), plt.yticks([])
+        if overlay == True:
+            plt.subplot(132),plt.imshow(ts[i].reshape(x, y)), plt.imshow(pred1r[i].reshape(x, y), 'binary', interpolation='none', alpha=0.3)
+        else : 
+            plt.subplot(132),plt.imshow(pred1r[i].reshape(x, y))
+        plt.title('Pred 1'), plt.xticks([]), plt.yticks([])
+        if overlay == True:
+            plt.subplot(133),plt.imshow(ts[i].reshape(x, y)), plt.imshow(pred2r[i].reshape(x, y), 'binary', interpolation='none', alpha=0.3)
+        else : 
+            plt.subplot(133),plt.imshow(pred2r[i].reshape(x, y))
+        plt.title('Pred 2'), plt.xticks([]), plt.yticks([])
+        plt.show()
+        
+    
+        
+        
 if __name__ == "__main__":
     file_p = "/masvol/heartsmart/unet_model/data/baseline/sunnybrook_1_3_256_learning_history.json"
     plot_accuracy_and_loss(file_p)
