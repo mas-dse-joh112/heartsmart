@@ -919,7 +919,7 @@ def create_df(Volumes):
 def removeLowEstimates(all_df, data):
     """
     Uses the gender and age model to estimate the volumes for patients where the predictions are low
-
+    These formulas are from the 2nd DSB leader gender and age model. 
     Args:
       all_df: dataframe of patient volumes
       data: test, train, validate
@@ -1026,6 +1026,125 @@ def removeLowEstimates(all_df, data):
         if df.loc[i]['Age Unit'] =='M':
             age = age/12
         new_vol = 181
+        ef_p = ((new_vol - df.loc[i]['Systole_P']) / new_vol)
+        df.set_value(i, 'Diastole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+
+    print (df.columns)
+    return df
+
+def removeLowEstimatesDSBLR(all_df, data):
+    """
+    Uses the gender and age model to estimate the volumes for patients where the predictions are low.
+    These formulas are from the DSB Train dataset that we derived. 
+
+    Args:
+      all_df: dataframe of patient volumes
+      data: test, train, validate
+
+    Returns:
+
+    """
+    df = all_df.copy()
+    sys_males_y_idx = df.loc[(df['Systole_P'] < 2.3) &
+                                          (df['Gender'] == 'M') & 
+                                          (df['Age_Int'] < 16)].index
+
+    sys_fem_y_idx = df.loc[(df['Systole_P'] < 2.3) &
+                                        (df['Gender']== 'F') &
+                                        (df['Age_Int'] < 16)].index
+
+    sys_males_o_idx = df.loc[(df['Systole_P'] < 2.3) &
+                                          (df['Gender'] == 'M') &
+                                          (df['Age_Int'] >= 16)].index
+    sys_fem_o_idx = df.loc[(df['Systole_P'] < 2.3) &
+                                        (df['Gender']== 'F') &
+                                        (df['Age_Int'] >= 16)].index
+    for i in sys_fem_y_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (1.7 * age) + 26
+        ef_p = ((df.loc[i]['Diastole_P'] - new_vol) / df.loc[i]['Diastole_P'])
+        df.set_value(i, 'Systole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+    for i in sys_males_y_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (3.7 * age) + 6.8
+        ef_p = ((df.loc[i]['Diastole_P'] - new_vol) / df.loc[i]['Diastole_P'])
+        df.set_value(i, 'Systole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+    for i in sys_fem_o_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (0.11 * age) + 79.1
+        ef_p = ((df.loc[i]['Diastole_P'] - new_vol) / df.loc[i]['Diastole_P'])
+        df.set_value(i, 'Systole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+    for i in sys_males_o_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (0.09 * age) + 58
+        ef_p = ((df.loc[i]['Diastole_P'] - new_vol) / df.loc[i]['Diastole_P'])
+        df.set_value(i, 'Systole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+
+    dia_males_y_idx = df.loc[(df['Diastole_P'] < 5) &
+                                          (df['Gender'] == 'M') &
+                                          (df['Age_Int'] < 16)].index
+    dia_fem_y_idx = df.loc[(df['Diastole_P'] < 5) &
+                                        (df['Gender']== 'F') & 
+                                        (df['Age_Int'] < 16)].index
+    dia_males_o_idx = df.loc[(df['Diastole_P'] < 5) &
+                                          (df['Gender'] == 'M') &
+                                          (df['Age_Int'] >= 16)].index
+    dia_fem_o_idx = df.loc[(df['Diastole_P'] < 5) &
+                                        (df['Gender'] == 'F') & 
+                                        (df['Age_Int'] >= 16)].index
+    for i in dia_fem_y_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (7 * age) + 36
+        ef_p = ((new_vol - df.loc[i]['Systole_P']) / new_vol)
+        df.set_value(i, 'Diastole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+
+    for i in dia_males_y_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (10 * age) + 12.5
+        ef_p = ((new_vol - df.loc[i]['Systole_P']) / new_vol)
+        df.set_value(i, 'Diastole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+
+    for i in dia_fem_o_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (-0.3 * age) + 204
+        ef_p = ((new_vol - df.loc[i]['Systole_P']) / new_vol)
+        df.set_value(i, 'Diastole_P', new_vol, takeable=False)
+        if data is None:
+            df.set_value(i, 'EF_P', ef_p, takeable = False)
+
+    for i in dia_males_o_idx:
+        age = df.loc[i]['Age_Int']
+        if df.loc[i]['Age Unit'] =='M':
+            age = age/12
+        new_vol = (-0.1 * age) + 156.4
         ef_p = ((new_vol - df.loc[i]['Systole_P']) / new_vol)
         df.set_value(i, 'Diastole_P', new_vol, takeable=False)
         if data is None:
